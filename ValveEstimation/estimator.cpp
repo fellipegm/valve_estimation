@@ -97,6 +97,25 @@ void Estimator::calc_lbub(double S0, double std_k) {
 			else
 				set_lb_ub({ S_lb, J_lb, D_lb }, { S_ub, J_ub, D_ub });
 			break;
+		case choudhury:
+			if (ident_k_finit) {
+				double range = (valve.get_xmax() - valve.get_xmin()) / 2;
+				set_lb_ub({ S_lb, J_lb, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
+					{ S_ub, J_ub, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
+			}
+			else
+				set_lb_ub({ S_lb, J_lb, D_lb }, { S_ub, J_ub, D_ub });
+			break;
+		case he:
+			if (ident_k_finit) {
+				double range = (valve.get_xmax() - valve.get_xmin()) / 2;
+				set_lb_ub({ S_lb/2, (S_lb-J_lb)/2, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
+					{ S_ub/2, (S_ub-J_ub)/2, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
+			}
+			else
+				set_lb_ub({ S_lb / 2, (S_lb - J_lb) / 2, D_lb }, { S_ub / 2, (S_ub - J_ub) / 2, D_ub });
+				//set_lb_ub({ 12.6, 12.2, 11.49 }, { 12.6, 12.2, 11.49 });
+			break;
 		case karnopp:
 			if (ident_k_finit) {
 				set_lb_ub({k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb }, 
@@ -153,7 +172,7 @@ double Estimator::residual_calc(ValveModel* model) {
 		for (size_t i = 0; i < lb.size(); i++) {
 			penalization += std::max(0.0, lb[i] - model->get_param_friction(i)) * 1e5 + std::max(0.0, model->get_param_friction(i) - ub[i]) * 1e5;
 		}
-		if (model->get_model() != kano)
+		if (model->get_model() != kano && model->get_model() != he && model->get_model() != choudhury)
 			penalization += std::max(0.0, model->get_Fc() - model->get_Fs() - 0.1) * 1e5;
 		if (model->get_model() == gms) {
 			double alpha_error = std::abs(model->get_alpha1() + model->get_alpha2() + model->get_alpha3() - 1);

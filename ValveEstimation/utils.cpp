@@ -6,6 +6,7 @@
 #include <math.h>
 #include <random>
 #include <chrono>
+#include <float.h>
 
 
 std::vector<size_t> sort_indexes(const std::vector<double>& v) {
@@ -32,6 +33,34 @@ std::vector<double> subtract_vectors(const std::vector<double>& v1, const std::v
 	std::vector<double> results(v1.size());
 	for (int i = 0; i < v1.size(); i++)
 		results[i] = v1[i] - v2[i];
+	return results;
+}
+
+std::vector<double> subtract_vect_const(const std::vector<double>& v1, const double c2) {
+	std::vector<double> results(v1.size());
+	for (int i = 0; i < v1.size(); i++)
+		results[i] = v1[i] - c2;
+	return results;
+}
+
+double min_vec(const std::vector<double>& v1) {
+	double result = DBL_MAX;
+	for (int i = 0; i < v1.size(); i++)
+		result = std::min(result, v1[i]);
+	return result;
+}
+
+double max_vec(const std::vector<double>& v1) {
+	double result = -DBL_MAX;
+	for (int i = 0; i < v1.size(); i++)
+		result = std::max(result, v1[i]);
+	return result;
+}
+
+std::vector<double> abs_vec(const std::vector<double>& v1) {
+	std::vector<double> results(v1.size());
+	for (int i = 0; i < v1.size(); i++)
+		results[i] = std::abs(v1[i]);
 	return results;
 }
 
@@ -190,6 +219,26 @@ std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, d
 	return exc_signal;
 }
 
+
+std::vector<std::vector<double>> exc_SP_cl_simulation(double SPm, double varSP, double Tsp, double Tsim, double dt) {
+
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 115499;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(SPm, varSP);
+
+	std::vector<double> t(int(Tsim / dt), 0.0), SP(int(Tsim / dt), 0.0);
+	double SP_i;
+	SP_i = randn(gen_normal);
+	for (int i = 0; i < int(Tsim / dt); ++i) {
+		if (std::remainder(double(i) * dt, Tsp) == 0)
+			SP_i = randn(gen_normal);
+		t[i] = dt * i;
+		SP[i] = SP_i;
+	}
+
+	return {t, SP};
+}
+
 std::vector<double> pyLogspace(double start, double stop, int num = 50, double base = 10) {
 	double realStart = pow(base, start);
 	double realBase = pow(base, (stop - start) / num);
@@ -230,7 +279,7 @@ std::vector<double> simulateNoise(const std::vector<double>& data, double snr) {
 	std::normal_distribution<double> randn(0.0, 1.0);
 
 	double mean = mean_vec(data);
-	double sigNoiseR = pow(10, snr / 10);
+	double sigNoiseR = pow(10.0, snr / 10.0);
 	double stanDev = mean / sigNoiseR;
 
 	std::vector<double> retval(data.size(), 0.0);
@@ -239,3 +288,62 @@ std::vector<double> simulateNoise(const std::vector<double>& data, double snr) {
 	return retval;
 }
 
+
+procDataCL preProcessCLdata(const std::vector<double>& t, const std::vector<double>& OP, 
+							const std::vector<double>& P, const std::vector<double>& x, double t_exc) {
+	procDataCL retval;
+	
+	double Ts = t[1] - t[0];
+	// Find the time which the valve is set to automatic again - 1s
+	int ind = int( (t_exc - 1) /  Ts );
+
+	int sz_retval = t.size() - ind;
+	retval.t.reserve(sz_retval);
+	retval.OP.reserve(sz_retval);
+	retval.P.reserve(sz_retval);
+	retval.x.reserve(sz_retval);
+	for (int i = 0; i < sz_retval; ++i) {
+		retval.t.push_back(0.0);
+		retval.OP.push_back(0.0);
+		retval.P.push_back(0.0);
+		retval.x.push_back(0.0);
+	}
+
+	int k = 0;
+	for (int i = ind; i < t.size(); ++i) {
+		retval.t[k] = k * Ts;
+		retval.OP[k] = OP[i];
+		retval.P[k] = P[i];
+		retval.x[k] = x[i];
+		k += 1;
+	}
+
+	int ind_stats = int((t_exc - 2) / Ts);
+	std::vector<double> x_stats, P_stats;
+	for (int i = ind_stats; i > ind_stats - 2.0 / Ts; --i) {
+		x_stats.push_back(x[i]);
+		P_stats.push_back(P[i]);
+	}
+	double sDevx = std_vec(x_stats);
+	double x_stp = mean_vec(x_stats);
+	double sDevP = std_vec(P_stats);
+
+	std::vector<double> x_int;
+	int stp_data;
+	for (int i = t_exc / Ts; i > 0; --i) {
+		x_int.clear();
+		double end_int = (i - 0.3 / Ts < 0) ? 0 : i - 0.3 / Ts;
+		for (int k = i; k > end_int; --k) {
+			x_int.push_back(x[k]);
+		}
+		if (min_vec(abs_vec(subtract_vect_const(x_int, x_stp))) > 1.5 * sDevx) {
+			stp_data = i;
+			break;
+		}
+	}
+	retval.x0 = x_stp;
+	retval.d0 = 1;
+	retval.u0 = P[stp_data];
+	retval.Rv = sDevP * sDevP;
+	return retval;
+}

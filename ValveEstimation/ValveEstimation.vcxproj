@@ -135,6 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="controller.cpp" />
     <ClCompile Include="estimator.cpp" />
     <ClCompile Include="csv_utils.cpp" />
     <ClCompile Include="run_estimation.cpp" />
@@ -142,6 +143,7 @@
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="controller.h" />
     <ClInclude Include="estimator.h" />
     <ClInclude Include="csv_utils.h" />
     <ClInclude Include="utils.h" />

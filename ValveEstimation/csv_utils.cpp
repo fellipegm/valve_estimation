@@ -29,7 +29,7 @@ csv_data get_data(const std::string filename) {
 
 	csv_data loaded_data;
 	for (auto row : data) {
-		if (row.size() == 7) {
+		if (row.size() == 9) {
 			loaded_data.t.push_back(stod(row[0]));
 			loaded_data.OP.push_back(stod(row[1]));
 			loaded_data.P.push_back(stod(row[2]));
@@ -37,6 +37,8 @@ csv_data get_data(const std::string filename) {
 			loaded_data.x_karnopp.push_back(stod(row[4]));
 			loaded_data.x_lugre.push_back(stod(row[5]));
 			loaded_data.x_gms.push_back(stod(row[6]));
+			loaded_data.x_he.push_back(stod(row[7]));
+			loaded_data.x_choudhury.push_back(stod(row[8]));
 		}
 	}
 
@@ -50,8 +52,8 @@ void write_simulation(std::string filename, simdata simulacao) {
 	
 	fout << std::fixed << std::setprecision(20);
 	for (int i = 0; i < simulacao.t.size(); ++i) {
-		fout << simulacao.t[i] << "," << simulacao.P[i] << "," << simulacao.x[i] << "," << simulacao.v[i] << "," << simulacao.a[i] << "," <<
-			simulacao.F_at[i] << "\n";
+		fout << simulacao.t[i] << "," << simulacao.OP[i] << "," << simulacao.P[i] << "," << simulacao.x[i] << "," << simulacao.v[i] << 
+			"," << simulacao.a[i] << "," << simulacao.F_at[i] << "," << simulacao.SP[i] << "\n";
 	}
 	
 	fout.close();
@@ -73,6 +75,12 @@ void write_estimation(std::string dir, estimator_output data, Estimator* estimat
 			break;
 		case gms:
 			model = "gms";
+			break;
+		case he:
+			model = "he";
+			break;
+		case choudhury:
+			model = "choudhury";
 			break;
 		default:
 			break;

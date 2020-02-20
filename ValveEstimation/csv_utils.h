@@ -17,6 +17,8 @@ typedef struct csv_data
 	std::vector<double> x_karnopp;
 	std::vector<double> x_lugre;
 	std::vector<double> x_gms;
+	std::vector<double> x_he;
+	std::vector<double> x_choudhury;
 } csv_data;
 
 csv_data get_data(const std::string);

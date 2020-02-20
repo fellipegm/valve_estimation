@@ -5,15 +5,18 @@
 
 #include <vector>
 #include <string>
+#include "controller.h"
 
 typedef struct simdata
 {
 	std::vector<double> t;
+	std::vector<double> OP;
 	std::vector<double> P;
 	std::vector<double> x;
 	std::vector<double> v;
 	std::vector<double> a;
 	std::vector<double> F_at;
+	std::vector<double> SP;
 } simdata;
 
 
@@ -21,7 +24,15 @@ enum friction_model {
 	kano,
 	karnopp,
 	lugre,
-	gms
+	gms,
+	he,
+	choudhury
+};
+
+enum sim_type {
+	ol,
+	cl,
+	h_cl
 };
 
 
@@ -32,12 +43,21 @@ private:
 
 	double Ts = { 1e-3 }; // sampling time
 	double dt = { 1e-5 }; // integration time
-	double pos0[2] = { 0, -1 }; // initial position
+	std::vector<double> pos0 { 0, -1 }; // initial position
 	double t0 = { 0 }; // initial time
-	double d0u0[2] = { -1, 0 }; // initial direction and input position the stem stopped, for Kano model only
+	std::vector<double> d0u0 { -1, 0 }; // initial direction and input position the stem stopped, for Kano model only
 
-	// input data for model
+	// Simulation type
+	sim_type simulation_type = ol;
+
+	// Variance for stem position sensor noise
+	double std_noise_controller = 1e-20;
+
+	// input data for ol model (diaphragm pressure) or cl model (SP)
 	std::vector<double> u;
+
+	// excitation signal for estimating the parameters in closed loop
+	std::vector<double> exc_cl;
 
 	// Valve model
 	friction_model model = kano;
@@ -80,25 +100,38 @@ private:
 	void sim_karnopp();
 	void sim_lugre();
 	void sim_gms();
+	void sim_he();
+	void sim_choudhury();
 
 	
 	void allocate_sim_data(int len_u);
 
 	bool sim_data_initialized = false;
 
+	Controller controller_hydraulic;
+
+	double hydraulic_model(double SP, double x, int ct);
+
 public:
-	ValveModel() {};
+	ValveModel();
+	Controller controller;
 	void set_valve_param_value(std::vector<double>); // set new values for valve parameters
 	void set_friction_param_value(std::vector<double>); // set new values for friction parameters
 	double get_param_friction(size_t i) { return param_friction[i]; };
-	void set_d0u0(double* input);
+	void set_d0u0(std::vector<double> input);
+	void set_pos0(std::vector<double> input) { pos0 = input; };
 	void set_input_data(std::vector<double>);
 	void set_model(friction_model new_model);
+	void set_simulation_type(sim_type input) { simulation_type = input; };
 	void valve_simulation();
+
+	void set_var_noise_controller(double input) { std_noise_controller = input; };
 
 	std::vector<double> OP2P_1order(std::vector<double>* OP, double tau, double Ts);
 	std::vector<double> filter2orderZP(const std::vector<double>* data, double wn, double xi);
 	std::vector<double> kalman_filter(const std::vector<double>* u, const std::vector<double>* y, double Rv, double Rw);
+
+	std::vector<double> Q_int, Q;
 
 	friction_model get_model() { return model; };
 	void clear_sim_data();

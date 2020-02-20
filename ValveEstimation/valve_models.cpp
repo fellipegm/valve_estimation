@@ -5,12 +5,21 @@
 #include <vector>
 #include <string>
 #include <complex>
+#include <chrono>
+#include <random>
 
 #include "valve_models.h"
 #include "utils.h"
+#include "controller.h"
 
 void upsample(double x_init, double x_end, int nSamp, double* return_data);
 
+
+ValveModel::ValveModel() {
+	controller = Controller();
+	controller_hydraulic = Controller();
+	controller_hydraulic.set_controller_parameters({ -0.675, -0.2, 0, 0, 100, 0 });
+}
 
 void ValveModel::valve_simulation() {
 	switch (model) {
@@ -25,6 +34,12 @@ void ValveModel::valve_simulation() {
 		break;
 	case gms:
 		sim_gms();
+		break;
+	case he:
+		sim_he();
+		break;
+	case choudhury:
+		sim_choudhury();
 		break;
 	default:
 		std::cout << "Error: Model unindentified. (avalilable options: kano, karnopp, lugre, gms)" << std::endl;
@@ -62,6 +77,7 @@ void ValveModel::set_valve_param_value(std::vector<double> input_param_valve) {
 	}
 	else
 		std::cout << "Error: Valve parameters size has to be 7 or 9" << std::endl;
+	controller.set_tau_ip(tau_ip);
 }
 
 void ValveModel::set_friction_param_value(std::vector<double> input_param_friction) {
@@ -194,74 +210,128 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 			C = input_param_friction[15];
 		}
 		break;
+	case he:
+		if (param_friction.size() == 5) {
+			F_s = input_param_friction[0];
+			F_c = input_param_friction[1];
+			D = input_param_friction[2];
+			x_minP = input_param_friction[3];
+			x_maxP = input_param_friction[4];
+		}
+		else if (param_friction.size() == 3) {
+			F_s = input_param_friction[0];
+			F_c = input_param_friction[1];
+			D = input_param_friction[2];
+			// Use the same limits of the valve physical constraints
+			x_minP = x_min;
+			x_maxP = x_max;
+		}
+		break;
+	case choudhury:
+		if (param_friction.size() == 5) {
+			S = input_param_friction[0];
+			J = input_param_friction[1];
+			D = input_param_friction[2];
+			x_minP = input_param_friction[3];
+			x_maxP = input_param_friction[4];
+		}
+		else if (param_friction.size() == 3) {
+			S = input_param_friction[0];
+			J = input_param_friction[1];
+			D = input_param_friction[2];
+			// Use the same limits of the valve physical constraints
+			x_minP = x_min;
+			x_maxP = x_max;
+		}
+		break;
 	default:
 		std::cout << "Error: Valve parameters size has to be 4 or 6 (Karnopp), 3 or 5 (Kano), 6 or 8 (LuGre) or 13, 14, 15 or 16 (GMS)" << std::endl;
 	}
 }
 
-void ValveModel::set_d0u0(double* input) {
-	d0u0[0] = input[0];
-	d0u0[1] = input[1];
+void ValveModel::set_d0u0(std::vector<double> input) {
+	d0u0 = input;
 }
 
 void ValveModel::set_input_data(std::vector<double> u_input) {
 	u = u_input;
+	Q_int.reserve(u.size());
+	Q.reserve(u.size());
+	for (int i = 0; i < u.size(); i++) {
+		Q_int.push_back(0.0);
+		Q.push_back(0.0);
+	}
 }
 
 void ValveModel::sim_kano() {
 
-	double* du = new double[u.size()] {0};
-	double* x = new double[u.size()] {0};
-	double* input = new double[u.size()] {0};
+	double* du = new double[u.size()] { 0 };
+	double* x = new double[u.size()] { 0 };
+	double* input = new double[u.size()] { 0 };
+	double* input_int = new double[u.size()]{ 0 };
+	double* noise = new double[u.size()]{ 0 };
+	double* OP = new double[u.size()]{ 0 };
 	double x0 = pos0[0];
 
-	for (int i = 0; i < u.size(); ++i) {
-		input[i] = (u[i] - p_min) / (p_max - p_min) * 100;
-		if (input[i] < 0)
-			input[i] = 0;
-		if (input[i] > 100)
-			input[i] = 100;
-	}
-
-	for (int i = 0; i < u.size(); i++) {
-		if (i == 0) {
-			input[i] = 0;
-			du[i] = 0;
-		}
-		else {
-			input[i] = input[i] - D;
-			du[i] = input[i] - input[i - 1];
-		}
-	}
-
-#ifdef _OLD_KANO_CALC
-	for (int i = 0; i < len_u; i++) {
-		if (input[i] > 100) {
-			input[i] = 100;
-		}
-		else if (input[i] < 0) {
-			input[i] = 0;
-		}
-	}
-#endif // _OLD_KANO_CALC
+	allocate_sim_data(u.size());
 
 	int stp = 1;
+	input[0] = (u[0] - p_min) / (p_max - p_min) * 100;
+	input[0] = (input[0] < 0) ? 0 : input[0];
+	input[0] = (input[0] > 100) ? 100 : input[0];
+	input[0] = input[0] - D;
+	input_int[0] = 0;
+	du[0] = 0;
 
 	double u_s, d;
-#ifndef _OLD_KANO_CALC
-	u_s = d0u0[1] - D;
-#else
-	u_s = 0;
-#endif
+	u_s = (d0u0[1] - p_min) / (p_max - p_min) * 100;
+	u_s = (u_s < 0) ? 0 : u_s;
+	u_s = (u_s > 100) ? 100 : u_s;
+	u_s = u_s - D;
+
 	d = d0u0[0];
 
-#ifndef _OLD_KANO_CALC
 	x[0] = (x0 - x_minP) / (x_maxP - x_minP) * ((100 - D) - (S - J) / 2);
-#else
-	x[0] = x0;
-#endif
+
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
 
 	for (int i = 1; i < u.size(); i++) {
+		if (simulation_type == ol) {
+			input[i] = (u[i] - p_min) / (p_max - p_min) * 100;
+			if (input[i] < 0)
+				input[i] = 0;
+			if (input[i] > 100)
+				input[i] = 100;
+		}
+		else if (simulation_type == cl) {
+			OP[i] = controller.pid(u[i], ((x[i - 1] * (x_max - x_min) / ((100 - D) - (S - J) / 2) + x_minP) - x_minP) / (x_maxP - x_minP) * 100 + randn(gen_normal), i);
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+		}
+		else if (simulation_type == h_cl) {
+			double SP = hydraulic_model(u[i], x[i - 1] * (x_maxP - x_minP) / ((100 - D) - (S - J) / 2) + x_minP, i);
+			noise[i - 1] = randn(gen_normal);
+			// Stem position controller
+			OP[i] = controller.pid(SP, x[i - 1] + noise[i - 1], i);
+			// IP model
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+			simulation_results.SP[i] = SP;
+		}
+
+		input[i] = input[i] - D;
+		du[i] = input[i] - input[i - 1];
+
 		if (du[i] * du[i - 1] <= 0.0 && stp == 0) {
 			u_s = input[i - 1];
 			stp = 1;
@@ -285,18 +355,24 @@ void ValveModel::sim_kano() {
 		}
 	}
 
-	allocate_sim_data(u.size());
-
 	for (int i = 0; i < u.size(); i++) {
 		simulation_results.t[i] = i * Ts;
 
-#ifndef _OLD_KANO_CALC
-		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / ((100 - D) - (S - J) / 2) + x_minP;
-#else
-		simulation_results.x[i] = x[i] * (x_maxP - x_minP)/100 + x_minP;
-#endif
 
-		simulation_results.P[i] = u[i];
+		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / ((100 - D) - (S - J) / 2) + x_minP;
+		if (simulation_type == h_cl)
+			simulation_results.x[i] = simulation_results.x[i] + noise[i] / 100 * (x_max - x_min);
+
+		if (simulation_type == ol)
+			simulation_results.P[i] = u[i];
+		else if (simulation_type == cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+			simulation_results.SP[i] = u[i];
+		}
+		else if (simulation_type == h_cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+		}
+		simulation_results.OP[i] = OP[i];
 
 		if (simulation_results.x[i] < x_minP) {
 			simulation_results.x[i] = x_minP;
@@ -307,18 +383,21 @@ void ValveModel::sim_kano() {
 
 		if (i == 0) {
 			simulation_results.v[i] = 0;
+			simulation_results.a[i] = 0;
 		}
 		else {
 			simulation_results.v[i] = (simulation_results.x[i] - simulation_results.x[i - 1]) / Ts;
+			simulation_results.a[i] = (simulation_results.v[i] - simulation_results.v[i - 1]) / Ts;
 		}
-
-		simulation_results.a[i] = 0;
 		simulation_results.F_at[i] = 0;
 	}
 
 	delete[] du;
+	delete[] OP;
 	delete[] x; 
 	delete[] input;
+	delete[] input_int;
+	delete[] noise;
 }
 
 void ValveModel::sim_karnopp() {
@@ -327,6 +406,10 @@ void ValveModel::sim_karnopp() {
 		throw "Error: simulation sampling time has to be lower than data sampling time";
 
 	int nSamp = Ts / dt;
+
+	// OP initialization
+	double* OP_exc = new double[nSamp+2]{ 0.0 };
+	double* P = new double[nSamp + 2]{ 0.0 };
 
 	// Valve model with Karnopp friction model
 	// valve stem position initialization
@@ -356,34 +439,114 @@ void ValveModel::sim_karnopp() {
 	int stick = 1;
 	double F_r{ 0 }, sig_F{ 0 }, sinal{ 0 }, P_exc_old{ 0 }, P_exc_old_old{ 0 };
 
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
+
 	for (int i = 0; i < u.size(); i++) {
 
 		if (i == u.size() - 1) {
 			simulation_results.x[i] = x[nSamp + 1];
 			simulation_results.v[i] = v[nSamp + 1];
 			simulation_results.a[i] = a[nSamp + 1];
-			simulation_results.P[i] = u[u.size() - 1];
+			if (simulation_type == ol) {
+				simulation_results.P[i] = u[u.size() - 1];
+			}
+			else if (simulation_type == cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = u[i];
+			}
+			else if (simulation_type == h_cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = simulation_results.SP[i-1];
+			}
 			simulation_results.F_at[i] = F_at[nSamp + 1];
 			simulation_results.t[i] = i * Ts + t0;
 			break;
 		}
 
 		// reinitialize intermediate vectors
-		upsample(u[i], u[i + 1], nSamp, &P_us[0]);
-		P_exc_old = P_exc[nSamp + 1];
-		P_exc_old_old = P_exc[nSamp];
-		if (i == 0) {
-			P_exc[0] = u[0];
-			P_exc[1] = u[0];
+		if (simulation_type == ol) {
+			upsample(u[i], u[i + 1], nSamp, &P_us[0]);
+			P_exc_old = P_exc[nSamp + 1];
+			P_exc_old_old = P_exc[nSamp];
+			if (i == 0) {
+				P_exc[0] = u[0];
+				P_exc[1] = u[0];
+			}
+			else {
+				P_exc[0] = P_exc_old_old;
+				P_exc[1] = P_exc_old;
+			}
+			for (int ct = 0; ct < nSamp; ct++) {
+				P_exc[ct + 2] = P_us[ct];
+			}
 		}
-		else {
-			P_exc[0] = P_exc_old_old;
-			P_exc[1] = P_exc_old;
+		else if (simulation_type == cl) {
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(u[i], (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100 + randn(gen_normal), i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp+1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = u[i];
 		}
-		for (int ct = 0; ct < nSamp; ct++) {
-			P_exc[ct + 2] = P_us[ct];
-		}
+		else if (simulation_type == h_cl) {
+			double SP{ 0.0 };
+			if (i > 0) {
+				SP = hydraulic_model(u[i], simulation_results.x[i - 1], i);
+				simulation_results.x[i - 1] += randn(gen_normal) / 100 * (x_max-x_min);
+			}
+			else
+				SP = 0;
 
+			// Stem position controller
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(SP, (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100, i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp + 1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = SP;
+		}
 
 		x[0] = x[nSamp];
 		x[1] = x[nSamp + 1];
@@ -399,7 +562,7 @@ void ValveModel::sim_karnopp() {
 		simulation_results.x[i] = x[1];
 		simulation_results.v[i] = v[1];
 		simulation_results.a[i] = a[1];
-		simulation_results.P[i] = P_exc[2];
+		simulation_results.P[i] = P_exc[1];
 		simulation_results.F_at[i] = F_at[1];
 		simulation_results.t[i] = i * Ts + t0;
 
@@ -472,6 +635,8 @@ void ValveModel::sim_karnopp() {
 	delete[] a;
 	delete[] F_at;
 	delete[] F_res;
+	delete[] OP_exc;
+	delete[] P;
 }
 
 void ValveModel::sim_lugre() {
@@ -479,6 +644,10 @@ void ValveModel::sim_lugre() {
 		throw "Error: simulation sampling time has to be lower than data sampling time";
 
 	int nSamp = Ts / dt;
+
+	// OP initialization
+	double* OP_exc = new double[nSamp + 2]{ 0.0 };
+	double* P = new double[nSamp + 2]{ 0.0 };
 
 	// Valve model with Karnopp friction model
 	// valve stem position initialization
@@ -521,32 +690,113 @@ void ValveModel::sim_lugre() {
 
 	double g_v{ 0 }, dot_z{ 0 }, dot_z_ant{ 0 };
 
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
+
 	for (int i = 0; i < u.size(); i++) {
 
 		if (i == u.size() - 1) {
 			simulation_results.x[i] = x[nSamp + 1];
 			simulation_results.v[i] = v[nSamp + 1];
 			simulation_results.a[i] = a[nSamp + 1];
-			simulation_results.P[i] = u[u.size() - 1];
+			if (simulation_type == ol) {
+				simulation_results.P[i] = u[u.size() - 1];
+			}
+			else if (simulation_type == cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = u[i];
+			}
+			else if (simulation_type == h_cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = simulation_results.SP[i - 1];
+			}
 			simulation_results.F_at[i] = F_at[nSamp + 1];
 			simulation_results.t[i] = i * Ts + t0;
 			break;
 		}
 
 		// reinitialize intermediate vectors
-		upsample(u[i], u[i + 1], nSamp, &P_us[0]);
-		P_exc_old = P_exc[nSamp + 1];
-		P_exc_old_old = P_exc[nSamp];
-		if (i == 0) {
-			P_exc[0] = u[0];
-			P_exc[1] = u[0];
+		if (simulation_type == ol) {
+			upsample(u[i], u[i + 1], nSamp, &P_us[0]);
+			P_exc_old = P_exc[nSamp + 1];
+			P_exc_old_old = P_exc[nSamp];
+			if (i == 0) {
+				P_exc[0] = u[0];
+				P_exc[1] = u[0];
+			}
+			else {
+				P_exc[0] = P_exc_old_old;
+				P_exc[1] = P_exc_old;
+			}
+			for (int ct = 0; ct < nSamp; ct++) {
+				P_exc[ct + 2] = P_us[ct];
+			}
 		}
-		else {
-			P_exc[0] = P_exc_old_old;
-			P_exc[1] = P_exc_old;
+		else if (simulation_type == cl) {
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(u[i], (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100 + randn(gen_normal), i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp + 1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = u[i];
 		}
-		for (int ct = 0; ct < nSamp; ct++) {
-			P_exc[ct + 2] = P_us[ct];
+		else if (simulation_type == h_cl) {
+			double SP{ 0.0 };
+			if (i > 0) {
+				SP = hydraulic_model(u[i], simulation_results.x[i - 1], i);
+				simulation_results.x[i - 1] += randn(gen_normal) / 100 * (x_max - x_min);
+			}
+			else
+				SP = 0;
+
+			// Stem position controller
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(SP, (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100, i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp + 1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = SP;
 		}
 
 		x[0] = x[nSamp];
@@ -565,7 +815,7 @@ void ValveModel::sim_lugre() {
 		simulation_results.x[i] = x[1];
 		simulation_results.v[i] = v[1];
 		simulation_results.a[i] = a[1];
-		simulation_results.P[i] = P_exc[2];
+		simulation_results.P[i] = P_exc[1];
 		simulation_results.F_at[i] = F_at[1];
 		simulation_results.t[i] = i * Ts + t0;
 
@@ -610,6 +860,8 @@ void ValveModel::sim_lugre() {
 	delete[] F_at;
 	delete[] F_res;
 	delete[] z;
+	delete[] OP_exc;
+	delete[] P;
 }
 
 void ValveModel::sim_gms() {
@@ -617,6 +869,10 @@ void ValveModel::sim_gms() {
 		throw "Error: simulation sampling time has to be lower than data sampling time";
 
 	int nSamp = Ts / dt;
+
+	// OP initialization
+	double* OP_exc = new double[nSamp + 2]{ 0.0 };
+	double* P = new double[nSamp + 2]{ 0.0 };
 
 	// Valve model with Karnopp friction model
 	// valve stem position initialization
@@ -678,33 +934,117 @@ void ValveModel::sim_gms() {
 	double sinal{ 0 }, s_v{ 0 };
 	int stick_1{ 1 }, stick_2{ 1 }, stick_3{ 1 };
 
+
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
+
 	for (int i = 0; i < u.size(); i++) {
 
 		if (i == u.size() - 1) {
 			simulation_results.x[i] = x[nSamp + 1];
 			simulation_results.v[i] = v[nSamp + 1];
 			simulation_results.a[i] = a[nSamp + 1];
-			simulation_results.P[i] = u[u.size() - 1];
+			if (simulation_type == ol) {
+				simulation_results.P[i] = u[u.size() - 1];
+			}
+			else if (simulation_type == cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = u[i];
+			}
+			else if (simulation_type == h_cl) {
+				simulation_results.P[i] = P_exc[nSamp + 1];
+				simulation_results.OP[i] = OP_exc[nSamp + 1];
+				simulation_results.SP[i] = simulation_results.SP[i - 1];
+			}
 			simulation_results.F_at[i] = F_at[nSamp + 1];
 			simulation_results.t[i] = i * Ts + t0;
 			break;
 		}
+		
 
 		// reinitialize intermediate vectors
-		upsample(u[i], u[i + 1], nSamp, &P_us[0]);
-		P_exc_old = P_exc[nSamp + 1];
-		P_exc_old_old = P_exc[nSamp];
-		if (i == 0) {
-			P_exc[0] = u[0];
-			P_exc[1] = u[0];
+		if (simulation_type == ol) {
+			upsample(u[i], u[i + 1], nSamp, &P_us[0]);
+			P_exc_old = P_exc[nSamp + 1];
+			P_exc_old_old = P_exc[nSamp];
+			if (i == 0) {
+				P_exc[0] = u[0];
+				P_exc[1] = u[0];
+			}
+			else {
+				P_exc[0] = P_exc_old_old;
+				P_exc[1] = P_exc_old;
+			}
+			for (int ct = 0; ct < nSamp; ct++) {
+				P_exc[ct + 2] = P_us[ct];
+			}
 		}
-		else {
-			P_exc[0] = P_exc_old_old;
-			P_exc[1] = P_exc_old;
+		else if (simulation_type == cl) {
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(u[i], (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100 + randn(gen_normal), i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp + 1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = u[i];
 		}
-		for (int ct = 0; ct < nSamp; ct++) {
-			P_exc[ct + 2] = P_us[ct];
+		else if (simulation_type == h_cl) {
+			double SP{ 0.0 };
+			if (i > 0) {
+				SP = hydraulic_model(u[i], simulation_results.x[i - 1], i);
+				simulation_results.x[i - 1] += randn(gen_normal) / 100 * (x_max - x_min);
+			}
+			else
+				SP = 0;
+
+			// Stem position controller
+			double OP{ 0 };
+			if (i == 0) {
+				OP_exc[0] = 0;
+				OP_exc[1] = 0;
+			}
+			else {
+				OP = controller.pid(SP, (simulation_results.x[i - 1] - x_min) / (x_max - x_min) * 100, i);
+				if (OP > 100)
+					OP = 100;
+				else if (OP < 0)
+					OP = 0;
+				OP_exc[0] = simulation_results.OP[i - 1];
+				OP_exc[1] = simulation_results.OP[i - 1];
+			}
+			for (int ct = 2; ct < nSamp + 2; ++ct) {
+				OP_exc[ct] = OP;
+				P[ct] = (dt * (p_max - p_min) / 100 * OP_exc[ct - 1] + tau_ip * P[ct - 1]) / (dt + tau_ip);
+				P_exc[ct] = P[ct] + p_min;
+			}
+			P[0] = P[nSamp];
+			P[1] = P[nSamp + 1];
+			P_exc[0] = P_exc[nSamp];
+			P_exc[1] = P_exc[nSamp + 1];
+			simulation_results.OP[i] = OP;
+			simulation_results.SP[i] = SP;
 		}
+
 
 		x[0] = x[nSamp];
 		x[1] = x[nSamp + 1];
@@ -726,7 +1066,7 @@ void ValveModel::sim_gms() {
 		simulation_results.x[i] = x[1];
 		simulation_results.v[i] = v[1];
 		simulation_results.a[i] = a[1];
-		simulation_results.P[i] = P_exc[2];
+		simulation_results.P[i] = P_exc[1];
 		simulation_results.F_at[i] = F_at[1];
 		simulation_results.t[i] = i * Ts + t0;
 
@@ -835,39 +1175,332 @@ void ValveModel::sim_gms() {
 	delete[] z_1;
 	delete[] z_2;
 	delete[] z_3;
+	delete[] OP_exc;
+	delete[] P;
+}
+
+void ValveModel::sim_he() {
+
+	double* x = new double[u.size()]{ 0 };
+	double* input = new double[u.size()]{ 0 };
+	double* input_int = new double[u.size()]{ 0 };
+	double* noise = new double[u.size()]{ 0 };
+	double* OP = new double[u.size()]{ 0 };
+	double x0 = pos0[0];
+	double cum_u, u_r;
+
+	allocate_sim_data(u.size());
+
+	int stp = 1;
+	input[0] = (u[0] - p_min) / (p_max - p_min) * 100;
+	input[0] = (input[0] < 0) ? 0 : input[0];
+	input[0] = (input[0] > 100) ? 100 : input[0];
+	input[0] = input[0] - D;
+	input_int[0] = 0;
+
+
+	x[0] = (x0 - x_minP) / (x_maxP - x_minP) * (100 - D);
+	if (pos0[1] == 0) {
+		cum_u = 0;
+		u_r = 0;
+	}
+	else if (pos0[1] > 0) {
+		cum_u = F_c;
+		u_r = F_c;
+	}
+	else {
+		cum_u = -F_c;
+		u_r = -F_c;
+	}
+
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
+
+	for (int i = 1; i < u.size(); i++) {
+		if (simulation_type == ol) {
+			input[i] = (u[i] - p_min) / (p_max - p_min) * 100;
+			if (input[i] < 0)
+				input[i] = 0;
+			if (input[i] > 100)
+				input[i] = 100;
+		}
+		else if (simulation_type == cl) {
+			OP[i] = controller.pid(u[i], (x[i - 1] * (x_maxP - x_minP) / (100 - D) + x_minP)/(x_max-x_min)*100 + randn(gen_normal), i);
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+		}
+		else if (simulation_type == h_cl) {
+			double SP = hydraulic_model(u[i], x[i - 1] * (x_maxP - x_minP) / (100 - D) + x_minP, i);
+			noise[i - 1] = randn(gen_normal);
+			// Stem position controller
+			OP[i] = controller.pid(SP, x[i - 1] + noise[i - 1], i);
+			// IP model
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+			simulation_results.SP[i] = SP;
+		}
+
+		input[i] = input[i] - D;
+		
+		cum_u = u_r + input[i] - input[i - 1];
+		if (std::abs(cum_u) > F_s) {
+			x[i] = input[i] - signal_fnc(cum_u - F_s)* F_c;
+			u_r = signal_fnc(cum_u - F_s)* F_c;
+		}
+		else {
+			x[i] = x[i - 1];
+			u_r = cum_u;
+		}
+	}
+
+	for (int i = 0; i < u.size(); i++) {
+		simulation_results.t[i] = i * Ts;
+
+		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / (100 - D) + x_minP;
+		if (simulation_type == h_cl)
+			simulation_results.x[i] = simulation_results.x[i] + noise[i] / 100 * (x_max - x_min);
+
+		if (simulation_type == ol)
+			simulation_results.P[i] = u[i];
+		else if (simulation_type == cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+			simulation_results.SP[i] = u[i];
+		}
+		else if (simulation_type == h_cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+		}
+		simulation_results.OP[i] = OP[i];
+
+		if (simulation_results.x[i] < x_minP) {
+			simulation_results.x[i] = x_minP;
+		}
+		else if (simulation_results.x[i] > x_maxP) {
+			simulation_results.x[i] = x_maxP;
+		}
+
+		if (i == 0) {
+			simulation_results.v[i] = 0;
+			simulation_results.a[i] = 0;
+		}
+		else {
+			simulation_results.v[i] = (simulation_results.x[i] - simulation_results.x[i - 1]) / Ts;
+			simulation_results.a[i] = (simulation_results.v[i] - simulation_results.v[i - 1]) / Ts;
+		}
+		simulation_results.F_at[i] = 0;
+	}
+
+	delete[] OP;
+	delete[] x;
+	delete[] input;
+	delete[] input_int;
+	delete[] noise;
+}
+
+
+void ValveModel::sim_choudhury() {
+
+	double* v_u = new double[u.size()]{ 0 };
+	double* x = new double[u.size()]{ 0 };
+	double* input = new double[u.size()]{ 0 };
+	double* input_int = new double[u.size()]{ 0 };
+	double* noise = new double[u.size()]{ 0 };
+	double* OP = new double[u.size()]{ 0 };
+	double x0 = pos0[0];
+
+	allocate_sim_data(u.size());
+
+	int I = 0;
+	input[0] = (u[0] - p_min) / (p_max - p_min) * 100;
+	input[0] = (input[0] < 0) ? 0 : input[0];
+	input[0] = (input[0] > 100) ? 100 : input[0];
+	input[0] = input[0] - D;
+	input_int[0] = 0;
+
+	double u_s;
+	u_s = (d0u0[1] - p_min) / (p_max - p_min) * 100;
+	u_s = (u_s < 0) ? 0 : u_s;
+	u_s = (u_s > 100) ? 100 : u_s;
+	u_s = u_s - D;
+
+	x[0] = (x0 - x_minP) / (x_maxP - x_minP) * ((100 - D) - (S - J) / 2);
+
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 11311;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, std_noise_controller);
+
+	for (int i = 1; i < u.size(); i++) {
+		if (simulation_type == ol) {
+			input[i] = (u[i] - p_min) / (p_max - p_min) * 100;
+			input[i] = (input[i] < 0) ? 0 : input[i];
+			input[i] = (input[i] > 100) ? 100 : input[i];
+		}
+		else if (simulation_type == cl) {
+			OP[i] = controller.pid(u[i], ((x[i - 1] * (x_max - x_min) / ((100 - D) - (S - J) / 2) + x_minP) - x_minP) / (x_maxP - x_minP) * 100 + randn(gen_normal), i);
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+		}
+		else if (simulation_type == h_cl) {
+			double SP = hydraulic_model(u[i], x[i - 1] * (x_maxP - x_minP) / ((100 - D) - (S - J) / 2) + x_minP, i);
+			noise[i - 1] = randn(gen_normal);
+			// Stem position controller
+			OP[i] = controller.pid(SP, x[i - 1] + noise[i - 1], i);
+			// IP model
+			if (OP[i] > 100)
+				OP[i] = 100;
+			else if (OP[i] < 0)
+				OP[i] = 0;
+			input_int[i] = (Ts * OP[i] + tau_ip * input_int[i - 1]) / (Ts + tau_ip);
+			input[i] = input_int[i];
+			simulation_results.SP[i] = SP;
+		}
+
+		input[i] = input[i] - D;
+		v_u[i] = (input[i] - input[i - 1])/Ts;
+
+		if ( signal_fnc(v_u[i]) == signal_fnc(v_u[i-1]) ) {
+			if (I == 1) {
+				if (signal_fnc(input[i] - u_s) * signal_fnc(u_s - x[i-1]) == 1.0) {
+					if (std::abs(input[i] - u_s) > J) {
+						I = 0;
+						x[i] = input[i] - signal_fnc(v_u[i]) * (S - J) / 2;
+					}
+					else {
+						I = 1;
+						x[i] = x[i - 1];
+					}
+				}
+				else {
+					if (std::abs(input[i] - x[i - 1]) > (S + J) / 2) {
+						I = 0;
+						x[i] = input[i] - signal_fnc(v_u[i]) * (S - J) / 2;
+					}
+					else {
+						I = 1;
+						x[i] = x[i - 1];
+					}
+				}
+			}
+			else {
+				I = 0;
+				x[i] = input[i] - signal_fnc(v_u[i]) * (S - J) / 2;
+			}
+		}
+		else {
+			if (I == 0)
+				u_s = input[i - 1];
+			if (signal_fnc(v_u[i]) == 0.0) {
+				I = 1;
+				x[i] = x[i - 1];
+			}
+			else {
+				if (std::abs(input[i] - x[i - 1]) > (S + J) / 2) {
+					I = 0;
+					x[i] = input[i] - signal_fnc(v_u[i]) * (S - J) / 2;
+				}
+				else {
+					I = 1;
+					x[i] = x[i - 1];
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < u.size(); i++) {
+		simulation_results.t[i] = i * Ts;
+
+		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / ((100 - D) - (S - J) / 2) + x_minP;
+		if (simulation_type == h_cl)
+			simulation_results.x[i] = simulation_results.x[i] + noise[i] / 100 * (x_max - x_min);
+
+		if (simulation_type == ol)
+			simulation_results.P[i] = u[i];
+		else if (simulation_type == cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+			simulation_results.SP[i] = u[i];
+		}
+		else if (simulation_type == h_cl) {
+			simulation_results.P[i] = input_int[i] * (p_max - p_min) / 100 + p_min;
+		}
+		simulation_results.OP[i] = OP[i];
+
+		if (simulation_results.x[i] < x_minP) {
+			simulation_results.x[i] = x_minP;
+		}
+		else if (simulation_results.x[i] > x_maxP) {
+			simulation_results.x[i] = x_maxP;
+		}
+
+		if (i == 0) {
+			simulation_results.v[i] = 0;
+			simulation_results.a[i] = 0;
+		}
+		else {
+			simulation_results.v[i] = (simulation_results.x[i] - simulation_results.x[i - 1]) / Ts;
+			simulation_results.a[i] = (simulation_results.v[i] - simulation_results.v[i - 1]) / Ts;
+		}
+		simulation_results.F_at[i] = 0;
+	}
+
+	delete[] v_u;
+	delete[] OP;
+	delete[] x;
+	delete[] input;
+	delete[] input_int;
+	delete[] noise;
 }
 
 void ValveModel::clear_sim_data() {
 	simulation_results.t.clear();
+	simulation_results.OP.clear();
 	simulation_results.P.clear();
 	simulation_results.x.clear();
 	simulation_results.v.clear();
 	simulation_results.a.clear();
 	simulation_results.F_at.clear();
+	simulation_results.SP.clear();
 	simulation_results.t.shrink_to_fit();
+	simulation_results.OP.shrink_to_fit();
 	simulation_results.P.shrink_to_fit();
 	simulation_results.x.shrink_to_fit();
 	simulation_results.v.shrink_to_fit();
 	simulation_results.a.shrink_to_fit();
 	simulation_results.F_at.shrink_to_fit();
+	simulation_results.SP.shrink_to_fit();
 	sim_data_initialized = false;
 }
 
 void ValveModel::allocate_sim_data(int len_u) {
 	if (!sim_data_initialized) {
 		simulation_results.t.reserve(len_u);
+		simulation_results.OP.reserve(len_u);
 		simulation_results.P.reserve(len_u);
 		simulation_results.x.reserve(len_u);
 		simulation_results.v.reserve(len_u);
 		simulation_results.a.reserve(len_u);
 		simulation_results.F_at.reserve(len_u);
+		simulation_results.SP.reserve(len_u);
 		for (int i = 0; i < len_u; i++) {
 			simulation_results.t.push_back(0.0);
+			simulation_results.OP.push_back(0.0);
 			simulation_results.P.push_back(0.0);
 			simulation_results.x.push_back(0.0);
 			simulation_results.v.push_back(0.0);
 			simulation_results.a.push_back(0.0);
 			simulation_results.F_at.push_back(0.0);
+			simulation_results.SP.push_back(0.0);
 		}
 		sim_data_initialized = true;
 	}
@@ -948,6 +1581,25 @@ std::vector<double> ValveModel::kalman_filter(const std::vector<double>* u, cons
 		retdata[i] = hat_x[i] + p_min;
 
 	return retdata;
+}
+
+
+double ValveModel::hydraulic_model(double SP, double x, int ct) {
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 1213155;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, 50 / pow(10, 25/10));
+
+	if (ct == 0) {
+		Q_int[0] = 100;
+		Q[0] = 100;
+		return 0;
+	}
+	else {
+		double tau_h = 3.375;
+		Q_int[ct] = -100442.87 * x * x -630.57 * x + 101.54;
+		Q[ct] = (Ts * Q_int[ct] + tau_h * Q[ct-1]) / (tau_h + Ts);
+		return controller_hydraulic.pid(SP, Q[ct] + randn(gen_normal), ct);
+	}
 }
 
 
