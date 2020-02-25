@@ -118,6 +118,8 @@ public:
 	void set_valve_param_value(std::vector<double>); // set new values for valve parameters
 	void set_friction_param_value(std::vector<double>); // set new values for friction parameters
 	double get_param_friction(size_t i) { return param_friction[i]; };
+	void set_sampling_time(double input) { Ts = input; };
+	void set_integration_time(double input) { dt = input; };
 	void set_d0u0(std::vector<double> input);
 	void set_pos0(std::vector<double> input) { pos0 = input; };
 	void set_input_data(std::vector<double>);

@@ -625,17 +625,25 @@ estimator_output Estimator::initial_map() {
 	for (int i = 0; i < combinations.size(); ++i)
 		mapping_results.push_back(0.0);
 
-	ValveModel* models = new ValveModel[combinations.size()];
-	#pragma omp parallel for
-	for (int i = 0; i < combinations.size(); i++) {
-		models[i] = ValveModel();
-		models[i] = valve;
-		models[i].set_friction_param_value(combinations[i]);
-		models[i].valve_simulation();
-		mapping_results[i] = residual_calc(&models[i]);
-		models[i].clear_sim_data();
-		std::cout << "Progress: " << double(i) / double(combinations.size()) * 100 << "\t" << "Residuals: " << mapping_results[i] << std::endl;
+	int size = 16*20;
+	ValveModel* models = new ValveModel[size];
+	int ct{ 0 };
+	while (ct < combinations.size()) {
+		if (ct + size > combinations.size())
+			size = combinations.size() - ct;
+		#pragma omp parallel for
+		for (int i = 0; i < size; i++) {
+			models[i] = ValveModel();
+			models[i] = valve;
+			models[i].set_friction_param_value(combinations[i+ct]);
+			models[i].valve_simulation();
+			mapping_results[i+ct] = residual_calc(&models[i]);
+			models[i].clear_sim_data();
+			std::cout << "Progress: " << double(i+ct) / double(combinations.size()) * 100 << "\t" << "Residuals: " << mapping_results[i+ct] << std::endl;
+		}
+		ct = ct + size;
 	}
+
 
 	delete[] models;
 
@@ -773,13 +781,13 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 			alpha1_aux = 1.0;
 			alpha2_aux = 1.0;
 		}
+	}
 
-		// The case where the k and f_init are estimated toghether
-		if (estimate_k_finit){
-			for (int i = 0; i < combinations.size(); i++) {
-				combinations[i].insert(combinations[i].begin(), valve.get_Finit());
-				combinations[i].insert(combinations[i].begin(), valve.get_k());
-			}
+	// The case where the k and f_init are estimated toghether
+	if (estimate_k_finit){
+		for (int i = 0; i < combinations.size(); i++) {
+			combinations[i].insert(combinations[i].begin(), valve.get_Finit());
+			combinations[i].insert(combinations[i].begin(), valve.get_k());
 		}
 	}
 

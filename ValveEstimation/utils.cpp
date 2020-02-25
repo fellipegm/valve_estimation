@@ -288,6 +288,20 @@ std::vector<double> simulateNoise(const std::vector<double>& data, double snr) {
 	return retval;
 }
 
+std::vector<double> simulateNoise(const std::vector<double>& data, double snr, double mean) {
+	int seed = std::chrono::system_clock::now().time_since_epoch().count() + 83;
+	std::default_random_engine gen_normal(seed);
+	std::normal_distribution<double> randn(0.0, 1.0);
+
+	double sigNoiseR = pow(10.0, snr / 10.0);
+	double stanDev = mean / sigNoiseR;
+
+	std::vector<double> retval(data.size(), 0.0);
+	for (int i = 0; i < data.size(); ++i)
+		retval[i] = data[i] + randn(gen_normal) * stanDev;
+	return retval;
+}
+
 
 procDataCL preProcessCLdata(const std::vector<double>& t, const std::vector<double>& OP, 
 							const std::vector<double>& P, const std::vector<double>& x, double t_exc) {
@@ -336,7 +350,7 @@ procDataCL preProcessCLdata(const std::vector<double>& t, const std::vector<doub
 		for (int k = i; k > end_int; --k) {
 			x_int.push_back(x[k]);
 		}
-		if (min_vec(abs_vec(subtract_vect_const(x_int, x_stp))) > 1.5 * sDevx) {
+		if (min_vec(abs_vec(subtract_vect_const(x_int, x_stp))) > 2 * sDevx) {
 			stp_data = i;
 			break;
 		}
