@@ -66,7 +66,7 @@ std::vector<double> pyLogspace(double, double, int, double);
 std::vector<double> pyLinspace(double start, double stop, int num);
 
 std::vector<std::vector<double>> exc_vel_senoidal(double, double, double, double, double, double, int, double);
-std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, double S, int n, double dt);
+std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, double S, double Tend, double dt);
 std::vector<std::vector<double>> exc_SP_cl_simulation(double SPm, double varSP, double Tsp, double Tsim, double dt);
 
 procDataCL preProcessCLdata(const std::vector<double>& t, const std::vector<double>& OP,

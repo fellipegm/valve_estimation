@@ -61,7 +61,7 @@ double Controller::pid(double SP, double PV, int ct){
 }
 
 
-double Controller::excitation_cl(double& MV, double PV, int ct) {
+void Controller::excitation_cl(double& MV, double PV, int ct) {
 	if (ct < 5) {
 		flag_start_excitation = false;
 		buffer_PV.clear();

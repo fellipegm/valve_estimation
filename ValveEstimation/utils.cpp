@@ -1,5 +1,3 @@
-
-
 #include "utils.h"
 #include <algorithm>
 #include <numeric>
@@ -171,7 +169,7 @@ std::vector<std::vector<double>> exc_vel_senoidal(double v_min, double v_max, do
 }
 
 
-std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, double S, int n, double dt) {
+std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, double S, double Tend, double dt) {
 	double exc_max = 100;
 
 	// Initialize velocities, amplitudes and directions
@@ -180,6 +178,8 @@ std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, d
 	std::random_device rd;
 	std::default_random_engine gen_uniform(rd());
 	std::uniform_real_distribution<double> rand_uniform(0.0, 1.0);
+
+	int n = int(Tend/2);
 
 	for (int i = 0; i < n; i++) {
 		v.push_back(rand_uniform(gen_uniform)*(v_max - v_min) + v_min);
@@ -198,8 +198,12 @@ std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, d
 		exc.push_back(0);
 		t.push_back(t.back() + dt);
 	}
-	for (int ct = 0; ct < n; ct++) {
-		for (int i = 0; i < int(tam[ct] / v[ct] / dt); ++i) {
+	int ct = 0;
+	bool break_ext = false;
+	while (true) {
+		if (break_ext)
+			break;
+		for (int i = 0; i < std::min(int(tam[ct] / v[ct] / dt), int(50/dt)); ++i) {
 			exc.push_back(exc.back() + dir[ct] * v[ct] * dt);
 			t.push_back(t.back() + dt);
 			if (exc.back() > 100) {
@@ -210,7 +214,12 @@ std::vector<std::vector<double>> exc_vel_aleatoria(double v_min, double v_max, d
 				exc.back() = 0.01;
 				dir[ct] = 1;
 			}
+			if (t.back() > Tend) {
+				break_ext = true;
+				break;
+			}
 		}
+		ct += 1;
 	}
 	std::vector<std::vector<double>> exc_signal;
 	exc_signal.push_back(t);

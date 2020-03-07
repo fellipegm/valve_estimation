@@ -33,7 +33,7 @@ class Controller {
 		bool flag_friction{ false }, flag_start_excitation{ false };
 		double std_PV{ 0.0 };
 		double time{ 0.0 };
-		double excitation_cl(double& MV, double PV, int ct);
+		void excitation_cl(double& MV, double PV, int ct);
 		std::vector<double> buffer_PV, x_stop;
 
 	public:

@@ -5,7 +5,9 @@
 
 #include <vector>
 #include <string>
+#include <map>
 #include "controller.h"
+
 
 typedef struct simdata
 {
@@ -20,14 +22,17 @@ typedef struct simdata
 } simdata;
 
 
-enum friction_model {
+enum class friction_model {
 	kano,
 	karnopp,
 	lugre,
 	gms,
+	sgms,
+	gms1,
 	he,
 	choudhury
 };
+
 
 enum sim_type {
 	ol,
@@ -60,7 +65,7 @@ private:
 	std::vector<double> exc_cl;
 
 	// Valve model
-	friction_model model = kano;
+	friction_model model = friction_model::kano;
 
 	// Valve parameters
 	double m{ 1.6 };
@@ -100,6 +105,8 @@ private:
 	void sim_karnopp();
 	void sim_lugre();
 	void sim_gms();
+	void sim_sgms();
+	void sim_gms1();
 	void sim_he();
 	void sim_choudhury();
 
@@ -156,7 +163,7 @@ public:
 	double get_tauip() { return tau_ip; };
 
 };
-#endif //_VALVE_MODEL_CLASS_H
+#endif //_VALVE_MODEL_H
 
 
 

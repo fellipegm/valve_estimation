@@ -92,36 +92,14 @@ void write_simulation(std::string filename, simdata simulacao) {
 }
 
 
-void write_estimation(std::string dir, estimator_output data, Estimator* estimator, double run_time) {
-	// Get valve model
-	std::string model = "";
-	switch (estimator->valve.get_model()){
-		case kano:
-			model = "kano";
-			break;
-		case karnopp:
-			model = "karnopp";
-			break;
-		case lugre:
-			model = "lugre";
-			break;
-		case gms:
-			model = "gms";
-			break;
-		case he:
-			model = "he";
-			break;
-		case choudhury:
-			model = "choudhury";
-			break;
-		default:
-			break;
-	}
-	std::time_t t = std::time(0);
-	std::tm* now = std::localtime(&t);
+void write_estimation(std::string dir, estimator_output data, std::string model, double run_time) {
+
+	std::time_t now = std::time(0);
+	struct std::tm newtime; 
+	localtime_s(&newtime, &now);
 	std::stringstream filename;
-	filename << std::to_string(now->tm_mday) << "-" << std::to_string(now->tm_mon + 1) << "-" << std::to_string(now->tm_year + 1900) << '_' <<
-		now->tm_hour << '-' << now->tm_min << '-' << now->tm_sec << '_' << 
+	filename << std::to_string(newtime.tm_mday) << "-" << std::to_string(newtime.tm_mon + 1) << "-" << std::to_string(newtime.tm_year + 1900) << '_' <<
+		newtime.tm_hour << '-' << newtime.tm_min << '-' << newtime.tm_sec << '_' <<
 		model;
 
 	std::ofstream fout(dir.append(filename.str()).append(".out"));

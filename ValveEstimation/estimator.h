@@ -29,7 +29,7 @@ private:
     bool pen_search_space = true;
 
 	// Optimization algorithm minimum decrease after 20% of iterations
-    double mindecrease { pow(1e-5,2) };
+    double mindecrease { pow(1e-7,2) };
  
     double residual_calc(ValveModel* model);
     estimator_output initial_map();
