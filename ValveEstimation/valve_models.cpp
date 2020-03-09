@@ -16,6 +16,7 @@ void upsample(double x_init, double x_end, int nSamp, double* return_data);
 
 
 ValveModel::ValveModel() {
+	clear_sim_data();
 	controller = Controller();
 	controller_hydraulic = Controller();
 	controller_hydraulic.set_controller_parameters({ -0.675, -0.2, 0, 0, 100, 0 });
@@ -2094,8 +2095,8 @@ void ValveModel::allocate_sim_data(int len_u) {
 	}
 }
 
-std::vector<double> ValveModel::OP2P_1order(std::vector<double>* OP, double tau, double Ts) {
-	std::vector<double> P = filter1order(OP, tau, Ts);
+std::vector<double> ValveModel::OP2P_1order(std::vector<double>* OP) {
+	std::vector<double> P = filter1order(OP, get_tauip(), this->Ts);
 	for (int i = 0; i < P.size(); ++i) {
 		P[i] = P[i] * (p_max - p_min) / 100 + p_min;
 		if (P[i] < p_min)

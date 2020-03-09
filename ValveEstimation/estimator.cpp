@@ -118,11 +118,13 @@ void Estimator::calc_lbub(double S0, double std_k) {
 			break;
 		case friction_model::karnopp:
 			if (ident_k_finit) {
+				//set_lb_ub({ 210490 * 0.7, 2550 * 0.7, 700 * 0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 210490 * 1.3, 2550 * 1.3, 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 				set_lb_ub({k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb }, 
 					{k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub });
 			}
 			else
 				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb }, { Fc_ub, Fs_ub, Fv_ub, vs_ub });
+				//set_lb_ub({ 700*0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 			break;
 		case friction_model::lugre:
 			if (ident_k_finit) {
@@ -190,7 +192,7 @@ double Estimator::residual_calc(ValveModel* model) {
 			penalization += std::max(0.0, lb[i] - model->get_param_friction(i)) * 1e5 + std::max(0.0, model->get_param_friction(i) - ub[i]) * 1e5;
 		}
 		if (model->get_model() != friction_model::kano && model->get_model() != friction_model::he && model->get_model() != friction_model::choudhury)
-			penalization += std::max(0.0, model->get_Fc() - model->get_Fs() - 0.1) * 1e5;
+			penalization += std::max(0.0, model->get_Fc() - model->get_Fs()) * 1e5;
 		if (model->get_model() == friction_model::gms) {
 			double alpha_error = std::abs(model->get_alpha1() + model->get_alpha2() + model->get_alpha3() - 1);
 			if (alpha_error > 1e-3)

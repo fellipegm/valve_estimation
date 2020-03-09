@@ -136,7 +136,7 @@ public:
 
 	void set_var_noise_controller(double input) { std_noise_controller = input; };
 
-	std::vector<double> OP2P_1order(std::vector<double>* OP, double tau, double Ts);
+	std::vector<double> OP2P_1order(std::vector<double>* OP);
 	std::vector<double> filter2orderZP(const std::vector<double>* data, double wn, double xi);
 	std::vector<double> kalman_filter(const std::vector<double>* u, const std::vector<double>* y, double Rv, double Rw);
 

@@ -80,7 +80,7 @@ int main() {
 		double S_exc = 25.7;
 		double v_max = 3e-3 * 100 / 29e-3;
 		double v_min = 1e-6 * 100 / 29e-3;
-		bool sim_noise = true;
+		bool sim_noise = false;
 		bool estimate_k_finit = true;
 		double std_k;
 		double SNR;
@@ -93,7 +93,7 @@ int main() {
 		else
 			std_k = 0;
 
-		std::string experimento = "aleatory_velocity";
+		std::string experimento = "sinusoidal_velocity";
 		// std::vector<std::string> models = {"kano", "he", "choudhury", "karnopp", "lugre", "sgms"};
 		std::vector<std::string> models = { "kano", "he", "choudhury", "karnopp", "lugre", "gms1" };
 		int n_tests = 20;
@@ -114,7 +114,7 @@ int main() {
 			// Initialize input data
 			ValveModel valve_init_data = ValveModel();
 			valve_init_data.set_valve_param_value(PARAM_VALVULA);
-			std::vector<double> P = valve_init_data.OP2P_1order(&input, 1 / w_n, 1e-3);
+			std::vector<double> P = valve_init_data.OP2P_1order(&input);
 
 			double Rv, time_taken;
 			clock_t t;
@@ -125,7 +125,7 @@ int main() {
 			// Filter input data
 			std::vector<double> P_filt;
 			if (sim_noise) {
-				P_filt = valve_init_data.kalman_filter(&valve_init_data.simulation_results.OP, &P_noise, Rv, Rv);
+				P_filt = valve_init_data.kalman_filter(&input, &P_noise, Rv, Rv / 50);
 				P_filt = valve_init_data.filter2orderZP(&P_filt, 1 / valve_init_data.get_tauip() * 100.0, 0.9);
 			}
 			else {
@@ -139,7 +139,7 @@ int main() {
 				valve_sim.set_model(fric_map[model]);
 				valve_sim.set_valve_param_value(PARAM_VALVULA);
 				valve_sim.set_friction_param_value(model_param_map[model]);
-				valve_sim.set_input_data(P_filt);
+				valve_sim.set_input_data(P);
 				valve_sim.set_simulation_type(ol);
 				valve_sim.valve_simulation();
 
