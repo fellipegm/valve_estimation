@@ -107,7 +107,7 @@ T mean_vec(const std::vector<T>& vec)
 }
 
 std::vector<double> simulateNoise(const std::vector<double>& data, double snr);
-std::vector<double> simulateNoise(const std::vector<double>& data, double snr, double mean);
+
 
 template<typename T>
 T signal_fnc(const T value)

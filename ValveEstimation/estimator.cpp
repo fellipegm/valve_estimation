@@ -88,7 +88,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 	double C_lb = 1;
 
 	switch (valve.get_model()) {
-		case friction_model::kano:
+		case kano:
 			if (ident_k_finit) {
 				double range = (valve.get_xmax() - valve.get_xmin()) / 2;
 				set_lb_ub({ S_lb, J_lb, D_lb, valve.get_xmin() - range, valve.get_xmax() - range }, 
@@ -97,7 +97,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 			else
 				set_lb_ub({ S_lb, J_lb, D_lb }, { S_ub, J_ub, D_ub });
 			break;
-		case friction_model::choudhury:
+		case choudhury:
 			if (ident_k_finit) {
 				double range = (valve.get_xmax() - valve.get_xmin()) / 2;
 				set_lb_ub({ S_lb, J_lb, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
@@ -106,7 +106,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 			else
 				set_lb_ub({ S_lb, J_lb, D_lb }, { S_ub, J_ub, D_ub });
 			break;
-		case friction_model::he:
+		case he:
 			if (ident_k_finit) {
 				double range = (valve.get_xmax() - valve.get_xmin()) / 2;
 				set_lb_ub({ S_lb/2, (S_lb-J_lb)/2, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
@@ -116,17 +116,15 @@ void Estimator::calc_lbub(double S0, double std_k) {
 				set_lb_ub({ S_lb / 2, (S_lb - J_lb) / 2, D_lb }, { S_ub / 2, (S_ub - J_ub) / 2, D_ub });
 				//set_lb_ub({ 12.6, 12.2, 11.49 }, { 12.6, 12.2, 11.49 });
 			break;
-		case friction_model::karnopp:
+		case karnopp:
 			if (ident_k_finit) {
-				//set_lb_ub({ 210490 * 0.7, 2550 * 0.7, 700 * 0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 210490 * 1.3, 2550 * 1.3, 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 				set_lb_ub({k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb }, 
 					{k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub });
 			}
 			else
 				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb }, { Fc_ub, Fs_ub, Fv_ub, vs_ub });
-				//set_lb_ub({ 700*0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 			break;
-		case friction_model::lugre:
+		case lugre:
 			if (ident_k_finit) {
 				set_lb_ub({ k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb, sigma0_lb, sigma1_lb },
 					{ k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub, sigma0_ub, sigma1_ub });
@@ -134,7 +132,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 			else
 				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb, sigma0_lb, sigma1_lb }, { Fc_ub, Fs_ub, Fv_ub, vs_ub, sigma0_ub, sigma1_ub });
 			break;
-		case friction_model::gms:
+		case gms:
 			if (ident_k_finit) {
 				set_lb_ub({ k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, kappa_lb, kappa_lb, nu_lb, nu_lb, nu_lb, alpha_lb, alpha_lb, C_lb },
 					{ k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, kappa_ub, kappa_ub, nu_ub, nu_ub, nu_ub, alpha_ub, alpha_ub, C_ub });
@@ -143,24 +141,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, kappa_lb, kappa_lb, nu_lb, nu_lb, nu_lb, alpha_lb, alpha_lb, C_lb}, 
 					{ Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, kappa_ub, kappa_ub, nu_ub, nu_ub, nu_ub, alpha_ub, alpha_ub, C_ub });
 			break;
-		case friction_model::sgms:
-			if (ident_k_finit) {
-				set_lb_ub({ k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, kappa_lb, alpha_lb, C_lb },
-					{ k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, kappa_ub, alpha_ub, C_ub });
-			}
-			else
-				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, kappa_lb, alpha_lb, C_lb },
-					{ Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, kappa_ub, alpha_ub, C_ub });
-			break;
-		case friction_model::gms1:
-			if (ident_k_finit) {
-				set_lb_ub({ k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, nu_lb, C_lb },
-					{ k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, nu_ub, C_ub });
-			}
-			else
-				set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb, kappa_lb, nu_lb, C_lb },
-					{ Fc_ub, Fs_ub, Fv_ub, vs_ub, kappa_ub, nu_ub, C_ub });
-			break;
+
 		default:
 			break;
 	}
@@ -169,7 +150,7 @@ void Estimator::calc_lbub(double S0, double std_k) {
 void Estimator::set_des_data(std::vector<double> input_data) {
 	des_data = input_data;
 
-	mindecrease = pow(1e-7, 2)/50;
+	mindecrease = pow(1e-7, 2)/5;
 }
 
 double Estimator::residual_calc(ValveModel* model) {
@@ -191,15 +172,15 @@ double Estimator::residual_calc(ValveModel* model) {
 		for (size_t i = 0; i < lb.size(); i++) {
 			penalization += std::max(0.0, lb[i] - model->get_param_friction(i)) * 1e5 + std::max(0.0, model->get_param_friction(i) - ub[i]) * 1e5;
 		}
-		if (model->get_model() != friction_model::kano && model->get_model() != friction_model::he && model->get_model() != friction_model::choudhury)
-			penalization += std::max(0.0, model->get_Fc() - model->get_Fs()) * 1e5;
-		if (model->get_model() == friction_model::gms) {
+		if (model->get_model() != kano && model->get_model() != he && model->get_model() != choudhury)
+			penalization += std::max(0.0, model->get_Fc() - model->get_Fs() - 0.1) * 1e5;
+		if (model->get_model() == gms) {
 			double alpha_error = std::abs(model->get_alpha1() + model->get_alpha2() + model->get_alpha3() - 1);
 			if (alpha_error > 1e-3)
 				penalization += alpha_error * 1e5;
 		}
 	}
-	return residual + penalization;
+	return residual+penalization;
 }
 
 estimator_output Estimator::run_estimator() {
@@ -239,7 +220,7 @@ estimator_output Estimator::run_estimator() {
 				aux_pop_vector.push_back(rand_uniform(gen_uniform) * (ub[j] - lb[j]) + lb[j]);
 			init_pop.push_back(aux_pop_vector);
 		}
-		if (valve.get_model() == friction_model::gms) {
+		if (valve.get_model() == gms) {
 			int offset = 0;
 			if (init_pop[i].size() >= 15)
 				offset = 2;
@@ -270,7 +251,7 @@ estimator_output Estimator::simplex(std::vector<double> param0) {
 	double rho{ 1 }, chi{ 2 }, psi{ 0.5 }, sigma{ 0.5 };
 
 	// Maximum number of iterations
-	int itermax = 1500;
+	int itermax = 2500;
 
 	// Number of function evals
 	int nfeval = 0;
@@ -473,7 +454,7 @@ estimator_output Estimator::dif_evolution(std::vector<std::vector<double>> initi
 	// Diferential evolution weight
 	double DE_weight = 0.8;
 	// Maximum number of iterations
-	int itermax = 1500;
+	int itermax = 500;
 
 	// Parameters dimension
 	int dim = initial_pop[0].size();
@@ -583,7 +564,7 @@ estimator_output Estimator::dif_evolution(std::vector<std::vector<double>> initi
 				if (pop[i][j] < lb[j])
 					pop[i][j] = lb[j] + rand_uniform(gen_uniform) * (pop_shuf3[i][j] - lb[j]);
 			}
-			if (valve.get_model() == friction_model::gms) {
+			if (valve.get_model() == gms) {
 				int offset = 0;
 				if (lb.size() >= 15)
 					offset = 2;
@@ -644,25 +625,17 @@ estimator_output Estimator::initial_map() {
 	for (int i = 0; i < combinations.size(); ++i)
 		mapping_results.push_back(0.0);
 
-	int size = 16*20;
-	ValveModel* models = new ValveModel[size];
-	int ct{ 0 };
-	while (ct < combinations.size()) {
-		if (ct + size > combinations.size())
-			size = combinations.size() - ct;
-		#pragma omp parallel for
-		for (int i = 0; i < size; i++) {
-			models[i] = ValveModel();
-			models[i] = valve;
-			models[i].set_friction_param_value(combinations[i+ct]);
-			models[i].valve_simulation();
-			mapping_results[i+ct] = residual_calc(&models[i]);
-			models[i].clear_sim_data();
-			std::cout << "Progress: " << double(i+ct) / double(combinations.size()) * 100 << "\t" << "Residuals: " << mapping_results[i+ct] << std::endl;
-		}
-		ct = ct + size;
+	ValveModel* models = new ValveModel[combinations.size()];
+	#pragma omp parallel for
+	for (int i = 0; i < combinations.size(); i++) {
+		models[i] = ValveModel();
+		models[i] = valve;
+		models[i].set_friction_param_value(combinations[i]);
+		models[i].valve_simulation();
+		mapping_results[i] = residual_calc(&models[i]);
+		models[i].clear_sim_data();
+		std::cout << "Progress: " << double(i) / double(combinations.size()) * 100 << "\t" << "Residuals: " << mapping_results[i] << std::endl;
 	}
-
 
 	delete[] models;
 
@@ -692,18 +665,7 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 	std::vector<double> lb_aux, ub_aux;
 	lb_aux = lb;
 	ub_aux = ub;
-
-	// The case where the k and f_init are estimated toghether
-	bool estimate_k_finit = false;
-	if ((valve.get_model() == friction_model::karnopp && ub.size() == 6) || (valve.get_model() == friction_model::lugre && ub.size() == 8) ||
-		(valve.get_model() == friction_model::gms && ub.size() == 15) || (valve.get_model() == friction_model::sgms && ub.size() == 10) ||
-		(valve.get_model() == friction_model::gms1 && ub.size() == 9)) {
-		estimate_k_finit = true;
-		lb_aux.erase(lb_aux.begin(), lb_aux.begin() + 2);
-		ub_aux.erase(ub_aux.begin(), ub_aux.begin() + 2);
-	}
-
-	if (valve.get_model() == friction_model::gms) {
+	if (valve.get_model() == gms) {
 		lb_aux.erase(lb_aux.begin() + 10, lb_aux.begin() + 12);
 		lb_aux.erase(lb_aux.begin() + 7, lb_aux.begin() + 9);
 		lb_aux.erase(lb_aux.begin() + 5, lb_aux.begin() + 7);
@@ -712,14 +674,13 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 		ub_aux.erase(ub_aux.begin() + 5, ub_aux.begin() + 7);
 	}
 
-	if (valve.get_model() == friction_model::sgms) {
-		lb_aux.erase(lb_aux.begin() + 5, lb_aux.begin() + 7);
-		ub_aux.erase(ub_aux.begin() + 5, ub_aux.begin() + 7);
-	}
-
-	if (valve.get_model() == friction_model::gms1) {
-		lb_aux.erase(lb_aux.begin() + 6, lb_aux.begin() + 7);
-		ub_aux.erase(ub_aux.begin() + 6, ub_aux.begin() + 7);
+	// The case where the k and f_init are estimated toghether
+	bool estimate_k_finit = false;
+	if ( (valve.get_model() == karnopp && ub.size() == 6) || (valve.get_model() == lugre && ub.size() == 8) || 
+		(valve.get_model() == gms && ub.size() == 15)) {
+		estimate_k_finit = true;
+		lb_aux.erase(lb_aux.begin(), lb_aux.begin() + 2);
+		ub_aux.erase(ub_aux.begin(), ub_aux.begin() + 2);
 	}
 
 	double paramAux;
@@ -767,16 +728,16 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 		}
 	}
 
-	if (valve.get_model() != friction_model::kano && valve.get_model() != friction_model::he && valve.get_model() != friction_model::choudhury) {
+	if (valve.get_model() != kano) {
 		for (int i = 0; i < combinations.size(); i++) {
-			if (combinations[i][1] < combinations[i][0]) {
+			if (combinations[i][1] + 0.1 < combinations[i][0]) {
 				combinations.erase(combinations.begin() + i);
 				i--;
 			}
 		}
 	}
 
-	if (valve.get_model() == friction_model::gms) {
+	if (valve.get_model() == gms) {
 		unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 		std::default_random_engine gen_uniform(seed);
 		std::uniform_real_distribution<double> rand_uniform(0.0, 1.0);
@@ -784,17 +745,16 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 		seed = std::chrono::system_clock::now().time_since_epoch().count() + 112778;
 		std::default_random_engine gen_normal(seed);
 		std::normal_distribution<double> randn(0.0, 1.0);
-		int comp_idx;
-		(estimate_k_finit) ? comp_idx = 2 : comp_idx = 0;
-		double kappa2_aux{ ub[4 + comp_idx] * 2 }, kappa3_aux{ ub[4 + comp_idx] * 2 }, nu2_aux{ ub[7 + comp_idx] * 2 }, nu3_aux{ ub[7 + comp_idx] * 2 }, alpha1_aux{ 1.0 }, alpha2_aux{ 1.0 };
+
+		double kappa2_aux{ ub[4] * 2 }, kappa3_aux{ ub[4] * 2 }, nu2_aux{ ub[7] * 2 }, nu3_aux{ ub[7] * 2 }, alpha1_aux{ 1.0 }, alpha2_aux{ 1.0 };
 		for (int i = 0; i < combinations.size(); i++) {
-			while (kappa2_aux > ub[4 + comp_idx] || kappa2_aux < lb[4 + comp_idx])
-				kappa2_aux = combinations[i][4 + comp_idx] * randn(gen_normal) + combinations[i][4 + comp_idx];
-			while (kappa3_aux > ub[4 + comp_idx] || kappa3_aux < lb[4 + comp_idx])
-				kappa3_aux = combinations[i][4 + comp_idx] * randn(gen_normal) + combinations[i][4 + comp_idx];
-			while (nu2_aux > ub[7 + comp_idx] || nu2_aux < lb[7 + comp_idx])
-				nu2_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5 + comp_idx];
-			while (nu3_aux > ub[7 + comp_idx] || nu3_aux < lb[7 + comp_idx])
+			while (kappa2_aux > ub[4] || kappa2_aux < lb[4])
+				kappa2_aux = combinations[i][4] * randn(gen_normal) + combinations[i][4];
+			while (kappa3_aux > ub[4] || kappa3_aux < lb[4])
+				kappa3_aux = combinations[i][4] * randn(gen_normal) + combinations[i][4];
+			while (nu2_aux > ub[7] || nu2_aux < lb[7])
+				nu2_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5];
+			while (nu3_aux > ub[7] || nu3_aux < lb[7])
 				nu3_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5];
 			while (alpha1_aux + alpha2_aux > 1.0) {
 				alpha1_aux = rand_uniform(gen_uniform);
@@ -806,58 +766,20 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 			combinations[i].insert(combinations[i].begin() + 8, nu3_aux);
 			combinations[i].insert(combinations[i].begin() + 10, alpha1_aux);
 			combinations[i].insert(combinations[i].begin() + 10, alpha2_aux);
-			kappa2_aux = ub[4 + comp_idx] * 2;
-			kappa3_aux = ub[4 + comp_idx] * 2;
-			nu2_aux = ub[7 + comp_idx] * 2;
-			nu3_aux = ub[7 + comp_idx] * 2;
+			kappa2_aux = ub[4] * 2;
+			kappa3_aux = ub[4] * 2;
+			nu2_aux = ub[7] * 2;
+			nu3_aux = ub[7] * 2;
 			alpha1_aux = 1.0;
 			alpha2_aux = 1.0;
 		}
-	}
 
-	if (valve.get_model() == friction_model::sgms) {
-		unsigned seed = std::chrono::system_clock::now().time_since_epoch().count() + 142331;
-		std::default_random_engine gen_uniform(seed);
-		std::uniform_real_distribution<double> rand_uniform(0.0, 1.0);
-
-		seed = std::chrono::system_clock::now().time_since_epoch().count() + 10154;
-		std::default_random_engine gen_normal(seed);
-		std::normal_distribution<double> randn(0.0, 1.0);
-
-		int comp_idx;
-		(estimate_k_finit) ? comp_idx = 2 : comp_idx = 0;
-		double kappa2_aux{ ub[4 + comp_idx] * 2 }, alpha1_aux{ 1.0 };
-		for (int i = 0; i < combinations.size(); i++) {
-			while (kappa2_aux > ub[4 + comp_idx] || kappa2_aux < lb[4 + comp_idx])
-				kappa2_aux = combinations[i][4] * randn(gen_normal) + combinations[i][4];
-			alpha1_aux = rand_uniform(gen_uniform);
-
-			combinations[i].insert(combinations[i].begin() + 5, kappa2_aux);
-			combinations[i].insert(combinations[i].begin() + 6, alpha1_aux);
-			kappa2_aux = ub[4 + comp_idx] * 2;
-		}
-	}
-
-	if (valve.get_model() == friction_model::gms1) {
-		unsigned seed = std::chrono::system_clock::now().time_since_epoch().count() + 142331;
-		std::default_random_engine gen_uniform(seed);
-		std::uniform_real_distribution<double> rand_uniform(0.0, 1.0);
-
-		int comp_idx;
-		double C_aux;
-		(estimate_k_finit) ? comp_idx = 2 : comp_idx = 0;
-		for (int i = 0; i < combinations.size(); i++) {
-			C_aux = rand_uniform(gen_uniform) * (ub[6 + comp_idx] - lb[6 + comp_idx]) + lb[6 + comp_idx];
-
-			combinations[i].insert(combinations[i].begin() + 6, C_aux);
-		}
-	}
-
-	// The case where the k and f_init are estimated toghether
-	if (estimate_k_finit){
-		for (int i = 0; i < combinations.size(); i++) {
-			combinations[i].insert(combinations[i].begin(), valve.get_Finit());
-			combinations[i].insert(combinations[i].begin(), valve.get_k());
+		// The case where the k and f_init are estimated toghether
+		if (estimate_k_finit){
+			for (int i = 0; i < combinations.size(); i++) {
+				combinations[i].insert(combinations[i].begin(), valve.get_Finit());
+				combinations[i].insert(combinations[i].begin(), valve.get_k());
+			}
 		}
 	}
 

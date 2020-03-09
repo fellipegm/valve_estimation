@@ -9,7 +9,6 @@
 #include "valve_models.h"
 #include "estimator.h"
 #include <ctime>
-#include <algorithm>
 
 
 csv_data get_data(const std::string filename) {
@@ -40,37 +39,6 @@ csv_data get_data(const std::string filename) {
 			loaded_data.x_gms.push_back(stod(row[6]));
 			loaded_data.x_he.push_back(stod(row[7]));
 			loaded_data.x_choudhury.push_back(stod(row[8]));
-		}
-	}
-
-	fin.close();
-
-	return loaded_data;
-}
-
-
-csv_real_data get_real_data(const std::string filename) {
-
-	std::fstream fin;
-	fin.open(filename, std::ios::in);
-
-	std::string line, word;
-	std::vector<std::vector<std::string>> data;
-	std::vector<std::string> row;
-	while (fin >> line) {
-		row.clear();
-		std::stringstream ss(line);
-		while (getline(ss, word, ','))
-			row.push_back(word);
-		data.push_back(row);
-	}
-
-	csv_real_data loaded_data;
-	for (auto row : data) {
-		if (row.size() == 3) {
-			loaded_data.OP.push_back(stod(row[0]));
-			loaded_data.P.push_back(stod(row[1]));
-			loaded_data.x.push_back(stod(row[2]));
 		}
 	}
 
@@ -132,11 +100,7 @@ void write_vector(std::string filename, std::vector<double>* u) {
 void write_matrix(std::string filename, std::vector<std::vector<double>>* u) {
 	std::ofstream fout(filename);
 	fout << std::fixed << std::setprecision(20);
-	size_t minsize = { 1000000000000 };
-	for (int i = 0; i < (*u).size(); ++i) {
-		minsize = std::min((*u)[i].size(), minsize);
-	}
-	for (int i = 0; i < minsize; ++i) {
+	for (int i = 0; i < (*u)[0].size(); ++i) {
 		for (int j = 0; j < (*u).size(); ++j) {
 			fout << (*u)[j][i];
 			if (j == (*u).size() - 1)

@@ -2146,7 +2146,7 @@ std::vector<double> ValveModel::kalman_filter(const std::vector<double>* u, cons
 	for (int i = 0; i < y->size(); ++i)
 		P_norm[i] = (*y)[i] - p_min;
 
-	double a = std::exp(-1 / tau_ip * Ts);
+	double a = exp(-1 / tau_ip * Ts);
 	double b = (p_max - p_min) / 100 * Ts / tau_ip;
 	double c = 1;
 	
