@@ -103,11 +103,11 @@ T std_vec(const std::vector<T>& vec)
 template<typename T>
 T mean_vec(const std::vector<T>& vec)
 {
-	return std::accumulate(vec.begin(), vec.end(), 0.0)/std::size(vec);
+	return std::accumulate(vec.begin(), vec.end(), 0.0) / std::size(vec);
 }
 
 std::vector<double> simulateNoise(const std::vector<double>& data, double snr);
-
+std::vector<double> simulateNoise(const std::vector<double>& data, double snr, double mean);
 
 template<typename T>
 T signal_fnc(const T value)

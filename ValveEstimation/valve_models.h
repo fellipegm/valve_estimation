@@ -48,9 +48,9 @@ private:
 
 	double Ts = { 1e-3 }; // sampling time
 	double dt = { 1e-5 }; // integration time
-	std::vector<double> pos0 { 0, -1 }; // initial position
+	std::vector<double> pos0{ 0, -1 }; // initial position
 	double t0 = { 0 }; // initial time
-	std::vector<double> d0u0 { -1, 0 }; // initial direction and input position the stem stopped, for Kano model only
+	std::vector<double> d0u0{ -1, 0 }; // initial direction and input position the stem stopped, for Kano model only
 
 	// Simulation type
 	sim_type simulation_type = ol;
@@ -110,7 +110,7 @@ private:
 	void sim_he();
 	void sim_choudhury();
 
-	
+
 	void allocate_sim_data(int len_u);
 
 	bool sim_data_initialized = false;
@@ -125,6 +125,8 @@ public:
 	void set_valve_param_value(std::vector<double>); // set new values for valve parameters
 	void set_friction_param_value(std::vector<double>); // set new values for friction parameters
 	double get_param_friction(size_t i) { return param_friction[i]; };
+	void set_sampling_time(double input) { Ts = input; };
+	void set_integration_time(double input) { dt = input; };
 	void set_d0u0(std::vector<double> input);
 	void set_pos0(std::vector<double> input) { pos0 = input; };
 	void set_input_data(std::vector<double>);
@@ -134,7 +136,7 @@ public:
 
 	void set_var_noise_controller(double input) { std_noise_controller = input; };
 
-	std::vector<double> OP2P_1order(std::vector<double>* OP, double tau, double Ts);
+	std::vector<double> OP2P_1order(std::vector<double>* OP);
 	std::vector<double> filter2orderZP(const std::vector<double>* data, double wn, double xi);
 	std::vector<double> kalman_filter(const std::vector<double>* u, const std::vector<double>* y, double Rv, double Rw);
 
