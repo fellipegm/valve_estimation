@@ -10,7 +10,10 @@ class Controller {
 		// Sampling time
 		double Ts{ 1e-3 };
 
+
+		
 		// PID controller parameters
+		std::vector<double> controller_parameters{ 0.1, 0.0, 0.0, 0.0, 100.0, -100.0 };
 		double Kp{ 0.1 };
 		double Ki{ 0.0 };
 		double Kd{ 0.0 };
@@ -37,16 +40,28 @@ class Controller {
 		std::vector<double> buffer_PV, x_stop;
 
 	public:
+		Controller(void) {};
+		//Controller(const Controller& cont);
+		//void operator= (const Controller& rhs);
+
 		// Time in which the excitation effectively started
 		double t_exc{ 0.0 };
 
-
 		double pid(double SP, double PV, int ct);
+
+		std::vector<double> get_controller_parameters(void) { return controller_parameters; };
+		std::vector<double> get_excitation(void) { return exc_cl; };
+		bool get_estimation_flag(void) { return estimation; };
+		double get_tau_ip(void) { return tau_ip; };
+		double get_sampling_time(void) { return Ts; };
 		
 		void set_controller_parameters(std::vector<double> input);
 		void set_excitation(std::vector<double> input) { exc_cl = input; };
 		void set_estimation(bool input) { estimation = input; };
 		void set_tau_ip(double input) { tau_ip = input; };
+		void set_sampling_time(double input) { Ts = input; };
+		
+
 };
 
 

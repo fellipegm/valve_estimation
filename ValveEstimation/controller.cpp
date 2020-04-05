@@ -4,6 +4,23 @@
 #include "utils.h"
 #include <vector>
 
+/*
+Controller::Controller(const Controller& cont) {
+	this->set_controller_parameters(cont.controller_parameters);
+	this->set_excitation( cont.exc_cl );
+	this->set_estimation( cont.estimation );
+	this->set_tau_ip( cont.tau_ip );
+	this->set_sampling_time( cont.Ts );
+}
+
+void Controller::operator=(const Controller& rhs) {
+	this->set_controller_parameters(rhs.controller_parameters);
+	this->set_excitation(rhs.exc_cl);
+	this->set_estimation(rhs.estimation);
+	this->set_tau_ip(rhs.tau_ip);
+	this->set_sampling_time(rhs.Ts);
+}
+*/
 
 double Controller::pid(double SP, double PV, int ct){
 
@@ -117,6 +134,8 @@ void Controller::excitation_cl(double& MV, double PV, int ct) {
 
 
 void Controller::set_controller_parameters(std::vector<double> input){
+	controller_parameters = input;
+
 	Kp = input[0];
 	Ki = input[1];
 	Kd = input[2];

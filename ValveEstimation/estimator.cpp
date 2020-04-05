@@ -23,15 +23,26 @@ void Estimator::calc_lbub(double S0, double std_k) {
 	double Fc_Fs_2pc = (valve.get_pmax() * valve.get_Sa() - valve.get_pmin() * valve.get_Sa()) / 100;
 	double Fc_ub, Fc_lb, Fs_ub, Fs_lb, Fv_lb, Fv_ub, S_lb, S_ub, J_lb, J_ub, D_lb, D_ub, vs_lb, vs_ub;
 
-	bool ident_k_finit = false;
+	bool ident_k_finit = true;
 	double k_lb, k_ub, finit_lb, finit_ub;
-	if (std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1) > 0.02) {
-		ident_k_finit = true;
+	double threshold_error_k = 0.05;
+	if (std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1) > threshold_error_k) {
 		double error_k = std::max(0.1, std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1));
 		k_lb = valve.get_k() - valve.get_k() * error_k;
 		k_ub = valve.get_k() + valve.get_k() * error_k;
 		finit_lb = valve.get_Finit() - valve.get_Finit() * error_k;
 		finit_ub = valve.get_Finit() + valve.get_Finit() * error_k;
+	}
+	else {
+		k_lb = valve.get_k() - valve.get_k() * threshold_error_k;
+		k_ub = valve.get_k() + valve.get_k() * threshold_error_k;
+		finit_lb = valve.get_Finit() - valve.get_Finit() * threshold_error_k;
+		finit_ub = valve.get_Finit() + valve.get_Finit() * threshold_error_k;
+	}
+	if (valve.get_Finit() < 0) {
+		double aux_invert = finit_lb;
+		finit_lb = finit_ub;
+		finit_ub = aux_invert;
 	}
 
 	if (S0 > 2) {
@@ -487,7 +498,7 @@ estimator_output Estimator::dif_evolution(std::vector<std::vector<double>> initi
 	for (int i = 0; i < pop_old.size(); ++i) residual_values_old.push_back(0.0);
 
 	ValveModel* models = new ValveModel[pop_old.size()];
-#pragma omp parallel for
+	#pragma omp parallel for
 	for (int i = 0; i < pop_old.size(); i++) {
 		models[i] = ValveModel();
 		models[i] = valve;
@@ -646,11 +657,12 @@ estimator_output Estimator::initial_map() {
 
 	int size = 16 * 20;
 	ValveModel* models = new ValveModel[size];
+
 	int ct{ 0 };
 	while (ct < combinations.size()) {
 		if (ct + size > combinations.size())
 			size = combinations.size() - ct;
-#pragma omp parallel for
+		#pragma omp parallel for
 		for (int i = 0; i < size; i++) {
 			models[i] = ValveModel();
 			models[i] = valve;

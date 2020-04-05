@@ -72,7 +72,7 @@ int main() {
 			save_dir = "D:\\Drive\\Projetos\\Doutorado2C\\test_data\\";
 	}
 
-	std::string type = "estimation"; // estimation, simulation, cl simulation or cl estimation, real estimation, real cl estimation
+	std::string type = "real estimation"; // estimation, simulation, cl simulation or cl estimation, real estimation, real cl estimation
 
 	if (type.compare("estimation") == 0) {
 		// Valve data and configuration of estimation
@@ -81,7 +81,7 @@ int main() {
 		double v_max = 3e-3 * 100 / 29e-3;
 		double v_min = 1e-6 * 100 / 29e-3;
 		bool sim_noise = true;
-		bool estimate_k_finit = true;
+		bool estimate_k_finit = false;
 		double std_k;
 		double SNR;
 		if (sim_noise)
@@ -94,8 +94,8 @@ int main() {
 			std_k = 0;
 
 		std::string experimento = "sinusoidal_velocity";
-		// std::vector<std::string> models = {"kano", "he", "choudhury", "karnopp", "lugre", "sgms"};
-		std::vector<std::string> models = { "kano", "he", "choudhury", "karnopp", "lugre", "gms1" };
+		// std::vector<std::string> models = {"kano", "he", "choudhury", "karnopp", "lugre", "sgms" };
+		std::vector<std::string> models = { "gms1" };
 		int n_tests = 20;
 
 
@@ -165,7 +165,16 @@ int main() {
 				estimator_output results = estimator.run_estimator();
 				t = clock() - t;
 				time_taken = ((double)t) / CLOCKS_PER_SEC;
-				write_estimation(save_dir, results, model, time_taken);
+
+				// Evaluate the minimum residual
+				valve_sim.set_input_data(P_filt);
+				valve_sim.valve_simulation();
+				double min_residual;
+				for (int i = 0; i < valve_sim.simulation_results.x.size(); i ++)
+					min_residual += pow(valve_sim.simulation_results.x[i] - x_filt[i], 2.0);
+				min_residual = min_residual / ((double)x_filt.size());
+
+				write_estimation(save_dir, results, model, time_taken, min_residual);
 			}
 		}
 		std::cout << "Estimation is over" << std::endl;
@@ -337,14 +346,14 @@ int main() {
 	}
 	else if (type.compare("real estimation") == 0) {
 
-		std::string save_dir("D:\\Drive\\Projetos\\Doutorado2C\\test_data\\");
-
-		std::string valvula{ "graphite" };
+		std::string valvula{ "teflon" };
 		std::string test{ "sinusoidal" };
-		int n_tests = 20;
+		int n_tests = 10;
+		// std::vector<std::string> models = { "kano", "he", "choudhury", "karnopp", "lugre", "gms1" };
+		std::vector<std::string> models = { "kano", "he", "choudhury", "karnopp", "lugre", "gms1" };
+		bool simulate_output = false;
 
-		std::string open_file = save_dir;
-		open_file.append(valvula).append("_data_ol_").append(test).append(".csv");
+		std::string open_file = save_dir + valvula + "_data_ol_" + test + ".csv";
 		csv_real_data dados = get_real_data(open_file);
 
 		double m, k, std_k, S_a, F_init, x_min, x_max, x_minP, x_maxP, p_min, p_max, tau_ip, Rv, S0;
@@ -356,8 +365,6 @@ int main() {
 			F_init = 2.619434530232170e+03;
 			x_min = 0.0014;
 			x_max = 0.02858;
-			x_minP = x_min;
-			x_maxP = 0.0284;
 			p_min = 4.223107229033772e+04;
 			p_max = 100 * 1.640909524103048e+03 + p_min;
 			tau_ip = 0.933;
@@ -370,10 +377,8 @@ int main() {
 			std_k = 1.936244943421518e+02;
 			S_a = 445e-4;
 			F_init = -1.575751572954500;
-			x_min = 5.075e-03;
-			x_max = 0.02858;
-			x_minP = x_min;
-			x_maxP = 0.0241;
+			x_min = 5.0e-03;
+			x_max = 0.0284;
 			p_min = 4.341768573042717e+04;
 			p_max = 100 * 1.671912917332373e+03 + p_min;
 			tau_ip = 0.979;
@@ -386,29 +391,42 @@ int main() {
 		ValveModel valve_init_data = ValveModel();
 		valve_init_data.set_model(friction_model::kano);
 		valve_init_data.set_valve_param_value(param_valvula);
-		std::vector<double> P_filt = valve_init_data.kalman_filter(&dados.OP, &dados.P, Rv, Rv);
+		std::vector<double> P_filt = valve_init_data.kalman_filter(&dados.OP, &dados.P, Rv, Rv/50);
 		P_filt = valve_init_data.filter2orderZP(&P_filt, 1 / valve_init_data.get_tauip() * 100.0, 0.9);
 		std::vector<double> x_filt = valve_init_data.filter2orderZP(&dados.x, 1 / valve_init_data.get_tauip() * 100.0, 0.9);
+
+		std::vector<double> sliced_x = std::vector<double>(x_filt.begin(), x_filt.begin()+5);
+		double initial_pos = mean_vec(sliced_x);
 
 		clock_t t;
 		double time_taken;
 		for (int i = 0; i < n_tests; ++i) {
-			//////--------------------------------------------------------------------------------------------
-			////// Kano model
-			////Estimator estimator_kano = Estimator();
-			////estimator_kano.valve.set_model(kano);
-			////estimator_kano.valve.set_simulation_type(ol);
-			////estimator_kano.valve.set_sampling_time(5e-3);
-			////estimator_kano.valve.set_valve_param_value(param_valvula);
-			////estimator_kano.valve.set_input_data(P_filt);
-			////estimator_kano.set_des_data(x_filt);
-			////estimator_kano.calc_lbub(S0, k/3);
-			////t = clock();
-			////estimator_output results_kano = estimator_kano.run_estimator();
-			////t = clock() - t;
-			////time_taken = ((double)t) / CLOCKS_PER_SEC;
-			////write_estimation(save_dir, results_kano, &estimator_kano, time_taken);
+			for (auto model : models) {
+				// Initialize the model estimation
+				Estimator estimator = Estimator();
+				estimator.valve.set_sampling_time(5e-3);
+				estimator.valve.set_integration_time(1e-5);
+				estimator.valve.set_pos0({ initial_pos, -1 });
+				estimator.valve.set_valve_param_value(param_valvula);
+				estimator.valve.set_model(fric_map[model]);
+				estimator.valve.set_simulation_type(ol);
+				estimator.valve.set_input_data(P_filt);
+				estimator.set_des_data(x_filt);
+				estimator.calc_lbub(S0, std_k);
+				t = clock();
+				estimator_output results = estimator.run_estimator();
+				t = clock() - t;
+				time_taken = ((double)t) / CLOCKS_PER_SEC;
 
+				write_estimation(save_dir, results, model, time_taken, 0.0);
+
+				if (simulate_output) {
+					estimator.valve.set_friction_param_value(results.parameters[0]);
+					estimator.valve.valve_simulation();
+					std::string filename = save_dir + "simulation_" + model + ".csv";
+					write_simulation(filename, estimator.valve.simulation_results);
+				}
+			}
 		}
 
 		std::cout << "Estimation is over" << std::endl;

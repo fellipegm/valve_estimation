@@ -43,7 +43,7 @@ enum sim_type {
 
 class ValveModel {
 private:
-	std::vector<double> param_valve; // param valve has size 9 or 7, depending if the estimated parameters includes k and F_init or not
+	std::vector<double> param_valve { 1.6, 210490, }; // param valve has size 9 or 7, depending if the estimated parameters includes k and F_init or not
 	std::vector<double> param_friction;
 
 	double Ts = { 1e-3 }; // sampling time
@@ -115,38 +115,43 @@ private:
 
 	bool sim_data_initialized = false;
 
-	Controller controller_hydraulic;
-
 	double hydraulic_model(double SP, double x, int ct);
 
 public:
 	ValveModel();
+	
+	//ValveModel(const ValveModel& rhs); // copy constructor
+	//void operator=(const ValveModel& rhs);
+
 	Controller controller;
+	Controller controller_hydraulic;
+
 	void set_valve_param_value(std::vector<double>); // set new values for valve parameters
 	void set_friction_param_value(std::vector<double>); // set new values for friction parameters
-	double get_param_friction(size_t i) { return param_friction[i]; };
 	void set_sampling_time(double input) { Ts = input; };
 	void set_integration_time(double input) { dt = input; };
 	void set_d0u0(std::vector<double> input);
 	void set_pos0(std::vector<double> input) { pos0 = input; };
+	void set_t0(double input) { t0 = input; };
 	void set_input_data(std::vector<double>);
 	void set_model(friction_model new_model);
 	void set_simulation_type(sim_type input) { simulation_type = input; };
-	void valve_simulation();
-
 	void set_var_noise_controller(double input) { std_noise_controller = input; };
 
-	std::vector<double> OP2P_1order(std::vector<double>* OP);
-	std::vector<double> filter2orderZP(const std::vector<double>* data, double wn, double xi);
-	std::vector<double> kalman_filter(const std::vector<double>* u, const std::vector<double>* y, double Rv, double Rw);
 
-	std::vector<double> Q_int, Q;
+	std::vector<double> get_valve_param_vector(void) { return param_valve; };
+	std::vector<double> get_friction_param_vector(void) { return param_friction; };
+	double get_sampling_time(void) { return Ts; };
+	double get_integration_time(void) { return dt; };
+	std::vector<double> get_d0u0(void) { return d0u0; };
+	std::vector<double> get_pos0(void) { return pos0; };
+	double get_t0(void) { return t0; };
+	std::vector<double> get_input_data(void) { return u; };
+	friction_model get_model(void) { return model; };
+	sim_type get_sim_type(void) { return simulation_type; };
+	double get_var_noise_controller(void) { return std_noise_controller; };
 
-	friction_model get_model() { return model; };
-	void clear_sim_data();
-
-	simdata simulation_results;
-
+	double get_param_friction(size_t i) { return param_friction[i]; };
 	double get_Fc() { return F_c; };
 	double get_Fs() { return F_s; };
 	double get_alpha1() { return alpha_1; };
@@ -161,6 +166,19 @@ public:
 	double get_xmax() { return x_max; };
 	double get_xmin() { return x_min; };
 	double get_tauip() { return tau_ip; };
+
+	
+	void valve_simulation();
+
+	std::vector<double> OP2P_1order(std::vector<double>* OP);
+	std::vector<double> filter2orderZP(const std::vector<double>* data, double wn, double xi);
+	std::vector<double> kalman_filter(const std::vector<double>* u, const std::vector<double>* y, double Rv, double Rw);
+
+	std::vector<double> Q_int, Q;
+
+	void clear_sim_data();
+
+	simdata simulation_results;
 
 };
 #endif //_VALVE_MODEL_H

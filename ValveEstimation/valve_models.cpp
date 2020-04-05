@@ -21,6 +21,45 @@ ValveModel::ValveModel() {
 	controller_hydraulic = Controller();
 	controller_hydraulic.set_controller_parameters({ -0.675, -0.2, 0, 0, 100, 0 });
 }
+/*
+ValveModel::ValveModel(const ValveModel& rhs) {
+	this->clear_sim_data();
+	this->controller = rhs.controller;
+	this->controller_hydraulic = rhs.controller_hydraulic;
+
+	this->set_model( rhs.model );
+	this->set_valve_param_value( rhs.param_valve ); // set new values for valve parameters
+	this->set_friction_param_value( rhs.param_friction ); // set new values for friction parameters
+	this->set_sampling_time( rhs.Ts );
+	this->set_integration_time( rhs.dt );
+	this->set_d0u0( rhs.d0u0 );
+	this->set_pos0( rhs.pos0 );
+	this->set_t0( rhs.t0 );
+	this->set_input_data( rhs.u );
+	
+	this->set_simulation_type( rhs.simulation_type );
+	this->set_var_noise_controller( rhs.std_noise_controller );
+}
+
+void ValveModel::operator= (const ValveModel& rhs) {
+	this->clear_sim_data();
+	controller = rhs.controller;
+	controller_hydraulic = rhs.controller_hydraulic;
+
+	set_model(rhs.model);
+	set_valve_param_value(rhs.param_valve); // set new values for valve parameters
+	set_friction_param_value(rhs.param_friction); // set new values for friction parameters
+	set_sampling_time(rhs.Ts);
+	set_integration_time(rhs.dt);
+	set_d0u0(rhs.d0u0);
+	set_pos0(rhs.pos0);
+	set_t0(rhs.t0);
+	set_input_data(rhs.u);
+
+	set_simulation_type(rhs.simulation_type);
+	set_var_noise_controller(rhs.std_noise_controller);
+}
+*/
 
 void ValveModel::valve_simulation() {
 	switch (model) {
@@ -109,24 +148,24 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		break;
 	case friction_model::karnopp:
 		if (param_friction.size() == 4) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5 ) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5 ) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 		}
 		else if (param_friction.size() == 6) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5 ) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5 ) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 		}
 		break;
 	case friction_model::lugre:
 		if (param_friction.size() == 6) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5 ) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5 ) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 			sigma_0 = input_param_friction[4];
@@ -135,8 +174,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		else if (param_friction.size() == 8) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5 ) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5 ) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 			sigma_0 = input_param_friction[6];
@@ -145,8 +184,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		break;
 	case friction_model::gms:
 		if (param_friction.size() == 13) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5 ) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5 ) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 			kappa_1 = input_param_friction[4];
@@ -163,8 +202,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 				std::cout << "Error: GMS alpha parameters error (it has to be between 0 an 1 and alpha_1 + alpha_2 < 1)" << std::endl;
 		}
 		else if (param_friction.size() == 14) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5 ) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5 ) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 			kappa_1 = input_param_friction[4];
@@ -181,8 +220,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		else if (param_friction.size() == 15) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 			kappa_1 = input_param_friction[6];
@@ -201,8 +240,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		else if (param_friction.size() == 16) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 			kappa_1 = input_param_friction[6];
@@ -219,8 +258,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		break;
 	case friction_model::sgms:
 		if (param_friction.size() == 8) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 			kappa_1 = input_param_friction[4];
@@ -232,8 +271,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		else if (param_friction.size() == 10) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 			kappa_1 = input_param_friction[6];
@@ -247,8 +286,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		break;
 	case friction_model::gms1:
 		if (param_friction.size() == 7) {
-			F_c = input_param_friction[0];
-			F_s = input_param_friction[1];
+			F_c = (input_param_friction[0] < 1e-5) ? 1e-5 : input_param_friction[0];
+			F_s = (input_param_friction[1] < 1e-5) ? 1e-5 : input_param_friction[1];
 			F_v = input_param_friction[2];
 			v_s = input_param_friction[3];
 			kappa_1 = input_param_friction[4];
@@ -258,8 +297,8 @@ void ValveModel::set_friction_param_value(std::vector<double> input_param_fricti
 		else if (param_friction.size() == 9) {
 			k = input_param_friction[0];
 			F_init = input_param_friction[1];
-			F_c = input_param_friction[2];
-			F_s = input_param_friction[3];
+			F_c = (input_param_friction[2] < 1e-5) ? 1e-5 : input_param_friction[2];
+			F_s = (input_param_friction[3] < 1e-5) ? 1e-5 : input_param_friction[3];
 			F_v = input_param_friction[4];
 			v_s = input_param_friction[5];
 			kappa_1 = input_param_friction[6];

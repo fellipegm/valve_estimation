@@ -128,6 +128,7 @@
       <OpenMP>GenerateParallelCode</OpenMP>
       <CCppSupport>Cpp17Support</CCppSupport>
       <Mtune>Sandybridge</Mtune>
+      <FloatingPointModel>Fast2</FloatingPointModel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

@@ -92,7 +92,7 @@ void write_simulation(std::string filename, simdata simulacao) {
 }
 
 
-void write_estimation(std::string dir, estimator_output data, std::string model, double run_time) {
+void write_estimation(std::string dir, estimator_output data, std::string model, double run_time, double min_residual) {
 
 	std::time_t now = std::time(0);
 	struct std::tm newtime;
@@ -107,7 +107,8 @@ void write_estimation(std::string dir, estimator_output data, std::string model,
 
 	fout << "N Func. Evals:," << data.nFuncEvals << "\n" <<
 		"residual:," << data.residuals[0] << "\n" <<
-		"time:," << run_time << "\n";
+		"time:," << run_time << "\n" <<
+		"original param. residual:," << min_residual << "\n";
 	for (int i = 0; i < data.parameters[0].size(); i++) {
 		fout << data.parameters[0][i];
 		if (i < data.parameters[0].size() - 1)
