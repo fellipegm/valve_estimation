@@ -7,6 +7,11 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <iostream>
+#include <string>
+#include <cstring>
+
+
 
 
 # define M_PI           3.14159265358979323846
@@ -119,5 +124,10 @@ T signal_fnc(const T value)
 	else
 		return 0;
 }
+
+
+int parse_arguments(int argc, char** argv, std::string& save_dir, std::string& type, std::string& excitation,
+	std::vector<std::string>& models, bool& noise, bool& k_finit, int& n_tests,
+	std::string& valve, std::string& load_file);
 
 #endif

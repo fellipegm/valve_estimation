@@ -4,8 +4,238 @@
 #include <math.h>
 #include <random>
 #include <chrono>
+#define NOMINMAX
+#include <windows.h>
+#include <direct.h>
 #include <float.h>
+#include <regex>
 
+#include "argagg.hpp"
+
+static std::vector<std::string> available_types{ "simulation", "estimation", "real-estimation", "real-simulation", "cl-simulation", "cl-estimation" };
+static std::vector<std::string> available_excitations{ "sinusoidal", "aleatory" };
+static std::vector<std::string> available_models{"kano", "he", "choudhury", "karnopp", "lugre", "gms", "sgms", "gms1" };
+static std::vector<std::string> available_valves{ "graphite", "teflon" };
+
+
+int parse_arguments(int argc, char** argv, std::string& save_dir, std::string& type, std::string& excitation, 
+	std::vector<std::string> &models, bool& noise, bool& k_finit, int& n_tests,
+	std::string& valve, std::string& load_file) {
+
+	argagg::parser argparser{ {
+		{ "help", {"--help"},
+		  "Shows help", 0},
+		{ "type", {"--type"},
+		  "Type of simulation or estimation", 1},
+		{ "noise", {"--noise"},
+		  "Simulates noise in the estimations types", 0},
+		{ "k_finit", {"-k"},
+		  "Estimates k and F_init as well", 0},
+		{ "directory", {"--directory"},
+		  "You have to set a directory to save the outputs with --directory=<path>", 1},
+		{ "excitation", {"--excitation"},
+		  "Defines the excitation method", 1},
+		{ "models", {"--models"},
+		  "Defines the models", 1},
+		{ "n_tests", {"-n"}, 
+		  "Number of estimations", 1},
+		{ "valve", {"--valve"},
+		  "Valve name", 1},
+		{ "load_file", {"--load"},
+		  "File to load in real tests", 1},
+	}};
+
+	// Message to help in the type definition
+	std::ostringstream no_type;
+	no_type << "User must define the type of experiment with --type=<type>" << std::endl <<
+		"<type> can be: ";
+	for (auto type_aux : available_types)
+		no_type << type_aux << "\t";
+	no_type << std::endl;
+
+	// Message to help in the excitations definition
+	std::ostringstream no_exc;
+	no_exc << "User must define the type of excitation signal with --excitation=<excitation>" << std::endl <<
+		"<excitation> can be: ";
+	for (auto exc_aux : available_excitations)
+		no_exc << exc_aux << "\t";
+	no_exc << std::endl;
+
+	// Message to help in the models definition
+	std::ostringstream no_models;
+	no_models << "User must define the friction models separated with minus with --models=<model1-model2>" << std::endl <<
+		"models can be: ";
+	for (auto model_aux : available_models)
+		no_models << model_aux << "\t";
+	no_models << std::endl;
+
+	// Message to help in the valve definition
+	std::ostringstream no_valve;
+	no_valve << "User must define the valve used in the real simulation or estimation --valve=<valve>" << std::endl <<
+		"<valve> can be: ";
+	for (auto valve_aux : available_valves)
+		no_valve << valve_aux << "\t";
+	no_valve << std::endl;
+
+	argagg::parser_results args;
+	try {
+		args = argparser.parse(argc, argv);
+	}
+	catch (const std::exception& e) {
+		std::cerr << e.what() << std::endl;
+		return 1;
+	}
+
+	if (args["help"] || argc == 1) {
+		argagg::fmt_ostream fmt(std::cerr);
+		fmt << "Usage: ValveEstimation --directory=<path> --type=<type> --excitation=<excitation> --models=<model1-model2-etc> -k --noise -n 1 --valve=<valve> --load=<real observations csv file with path>" << std::endl;
+		fmt << no_type.str() << std::endl
+			<< no_exc.str() << std::endl 
+			<< no_models.str() << std::endl;
+		fmt << "-k is used to estimate k and F_init toghether" << std::endl;
+		fmt << "--noise is used to simulate noise in the estimations" << std::endl;
+		fmt << "-n is used to set how many estimations are necessary -n 10" << std::endl;
+		fmt << "--valve=<graphite,teflon> sets the valve data used in real estimation or simulation" << std::endl;
+		fmt << "--load=<file with path> sets the file with real data for estimation" << std::endl;
+
+		return 0;
+	}
+
+	if (args["directory"]) {
+		save_dir = args["directory"].as<std::string>();
+
+		DWORD ftyp = GetFileAttributesA(save_dir.c_str());
+		if (ftyp == INVALID_FILE_ATTRIBUTES) {
+			std::cout << "Path is not correct" << std::endl;
+			return 1;
+		}
+	}
+	else {
+		std::cout << "User must specify a directory with --directory=<path>";
+		return 1;
+	}
+
+
+
+	if (args["type"]) {
+		type = args["type"].as<std::string>();
+		int counter_aux = 0;
+		for (auto type_comp : available_types) {
+			if (type_comp.compare(type) == 0)
+				counter_aux += 1;
+		}
+		if (counter_aux != 1) {
+			std::cout << no_type.str();
+			return 1;
+		}
+	}
+	else {
+		std::cout << no_type.str();
+		return 1;
+	}
+
+
+	if (args["excitation"]) {
+		excitation = args["excitation"].as<std::string>();
+		int counter_aux = 0;
+		for (auto excitation_aux : available_excitations) {
+			if (excitation_aux.compare(excitation) == 0)
+				counter_aux += 1;
+		}
+		if (counter_aux != 1) {
+			std::cout << no_exc.str();
+			return 1;
+		}
+	}
+	else {
+		std::cout << no_exc.str();
+		return 1;
+	}
+
+	if (args["models"]) {
+		auto passedModels_str = args["models"].as<std::string>();
+		std::vector<std::string> passedModels;
+		std::stringstream ss(passedModels_str);
+		while ( ss.good() ){
+			std::string substr;
+			getline(ss, substr, '-');
+			passedModels.push_back(substr);
+		}
+		int counter_aux = 0;
+		for (auto passedModel : passedModels) {
+			models.push_back(passedModel);
+			for (auto model_aux : available_models) {
+				if (model_aux.compare(passedModel) == 0)
+					counter_aux += 1;
+			}
+		}
+		if (counter_aux != passedModels.size()) {
+			std::cout << no_models.str();
+			return 1;
+		}
+	}
+	else {
+		std::cout << no_models.str();
+		return 1;
+	}
+
+	if (args["k_finit"])
+		k_finit = true;
+	else
+		k_finit = false;
+
+	if (args["noise"])
+		noise = true;
+	else
+		noise = false;
+
+	if (args["n_tests"]) {
+		n_tests = args["n_tests"].as<int>();
+
+		if (n_tests < 1) {
+			std::cout << "Number of estimations has to be higher than 1" << std::endl;
+			return 1;
+		}
+	}
+	else
+		n_tests = 1;
+
+
+	if (args["valve"]) {
+		valve = args["valve"].as<std::string>();
+
+		int counter_aux = 0;
+		for (auto model_aux : available_valves) {
+			if (model_aux.compare(valve) == 0)
+				counter_aux += 1;
+		}
+		if (counter_aux != 1) {
+			std::cout << no_valve.str();
+			return 1;
+		}
+	}
+	else if ( std::regex_match(type, std::regex("^real-.*")) ){
+		std::cout << no_valve.str();
+		return 1;
+	}
+
+
+	if (args["load_file"]) {
+		load_file = args["load_file"].as<std::string>();
+
+		DWORD ftyp = GetFileAttributesA(load_file.c_str());
+		if (ftyp == INVALID_FILE_ATTRIBUTES) {
+			std::cout << "File does not exist" << std::endl;
+			return 1;
+		}
+	}
+	else if (std::regex_match(type, std::regex("^real-.*"))) {
+		std::cout << "For real estimations or simulation, the data has to be passed with --load=<file with path>";
+		return 1;
+	}
+
+	return 0;
+}
 
 std::vector<size_t> sort_indexes(const std::vector<double>& v) {
 	// initialize original index locations

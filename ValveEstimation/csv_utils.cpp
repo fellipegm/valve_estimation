@@ -79,17 +79,62 @@ csv_real_data get_real_data(const std::string filename) {
 	return loaded_data;
 }
 
-void write_simulation(std::string filename, simdata simulacao) {
-	std::ofstream fout(filename);
 
+
+void writer_variable(std::ofstream& file, const std::vector<double>& variable) {
+	for (double data : variable)
+		file.write((char*)&data, sizeof(double));
+}
+
+void write_header_sim(std::ofstream& file, unsigned int n_variables, unsigned int size_vector, std::vector<std::string> variables) {
+	// file identifier (.sim 0x73, 0x69, 0x6D, 0x00, 0x00)
+	char* identification = new char[5]{ 0x73, 0x69, 0x6D, 0x00, 0x00 };
+	file.write((&(*identification)), sizeof(identification[0]) * 5);
+
+	file.write((char*)&n_variables, sizeof(unsigned int));
+	file.write((char*)&size_vector, sizeof(size_vector));
+
+	for (std::string variable : variables) {
+		char tag[20]{};
+		for (int i = 0; i < variable.size() && i < 20; i++)
+			tag[i] = variable.c_str()[i];
+		file.write((&(*tag)), sizeof(tag[0]) * 20);
+	}
+}
+
+void write_simulation(std::string filename, const simdata& simulacao) {
+	
+#ifdef _WRITE_SIMULATION_CSV
+	
+	std::ofstream fout(filename);
 	fout << std::fixed << std::setprecision(20);
 	for (int i = 0; i < simulacao.t.size(); ++i) {
 		fout << simulacao.t[i] << "," << simulacao.OP[i] << "," << simulacao.P[i] << "," << simulacao.x[i] << "," << simulacao.v[i] <<
 			"," << simulacao.a[i] << "," << simulacao.F_at[i] << "," << simulacao.SP[i] << "\n";
 	}
+	fout.close()
+
+#else
+
+	std::ofstream fout(filename, std::ios::out | std::ios::binary);
+	
+	std::vector<std::string> variables{ "t", "OP", "P", "x", "v", "a", "F_at", "SP" };
+	write_header_sim(fout, 8, simulacao.t.size(), variables);
+	writer_variable(fout, simulacao.t);
+	writer_variable(fout, simulacao.OP);
+	writer_variable(fout, simulacao.P);
+	writer_variable(fout, simulacao.x);
+	writer_variable(fout, simulacao.v);
+	writer_variable(fout, simulacao.a);
+	writer_variable(fout, simulacao.F_at);
+	writer_variable(fout, simulacao.SP);
 
 	fout.close();
+
+#endif
 }
+
+
 
 
 void write_estimation(std::string dir, estimator_output data, std::string model, double run_time, double min_residual) {
@@ -120,17 +165,10 @@ void write_estimation(std::string dir, estimator_output data, std::string model,
 }
 
 
-void write_vector(std::string filename, std::vector<double>* u) {
-	std::ofstream fout(filename);
-	fout << std::fixed << std::setprecision(20);
-	for (auto data : *u) {
-		fout << data << "\n";
-	}
-	fout.close();
-}
+void write_matrix(std::string filename, const std::vector<std::vector<double>>& u, std::vector<std::string> variables) {
 
+#ifdef _WRITE_SIMULATION_CSV
 
-void write_matrix(std::string filename, std::vector<std::vector<double>>* u) {
 	std::ofstream fout(filename);
 	fout << std::fixed << std::setprecision(20);
 	size_t minsize = { 1000000000000 };
@@ -144,7 +182,20 @@ void write_matrix(std::string filename, std::vector<std::vector<double>>* u) {
 				fout << "\n";
 			else
 				fout << ",";
-		}
+}
 	}
 	fout.close();
+
+#else
+
+	std::ofstream fout(filename, std::ios::out | std::ios::binary);
+
+	write_header_sim(fout, u.size(), u[0].size(), variables);
+
+	for (auto vector : u)
+		writer_variable(fout, vector);
+
+	fout.close();
+
+#endif
 }

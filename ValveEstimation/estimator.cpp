@@ -16,14 +16,11 @@ Estimator::Estimator() {
 	valve = ValveModel();
 }
 
-void Estimator::calc_lbub(double S0, double std_k) {
-	// If std_k < 2% of the k value, it is not necessary to estimate k and finit together with the friction parameters
-
+void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 	double Fc_Fs_u2 = (valve.get_pmax() * valve.get_Sa() - valve.get_pmin() * valve.get_Sa()) * S0 / 100 / 2;
 	double Fc_Fs_2pc = (valve.get_pmax() * valve.get_Sa() - valve.get_pmin() * valve.get_Sa()) / 100;
 	double Fc_ub, Fc_lb, Fs_ub, Fs_lb, Fv_lb, Fv_ub, S_lb, S_ub, J_lb, J_ub, D_lb, D_ub, vs_lb, vs_ub;
 
-	bool ident_k_finit = true;
 	double k_lb, k_ub, finit_lb, finit_ub;
 	double threshold_error_k = 0.05;
 	if (std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1) > threshold_error_k) {
@@ -125,17 +122,14 @@ void Estimator::calc_lbub(double S0, double std_k) {
 		}
 		else
 			set_lb_ub({ S_lb / 2, (S_lb - J_lb) / 2, D_lb }, { S_ub / 2, (S_ub - J_ub) / 2, D_ub });
-		//set_lb_ub({ 12.6, 12.2, 11.49 }, { 12.6, 12.2, 11.49 });
 		break;
 	case friction_model::karnopp:
 		if (ident_k_finit) {
-			//set_lb_ub({ 210490 * 0.7, 2550 * 0.7, 700 * 0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 210490 * 1.3, 2550 * 1.3, 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 			set_lb_ub({ k_lb, finit_lb, Fc_lb, Fs_lb, Fv_lb, vs_lb },
 				{ k_ub, finit_ub, Fc_ub, Fs_ub, Fv_ub, vs_ub });
 		}
 		else
 			set_lb_ub({ Fc_lb, Fs_lb, Fv_lb, vs_lb }, { Fc_ub, Fs_ub, Fv_ub, vs_ub });
-		//set_lb_ub({ 700*0.7, 780 * 0.7, 125000 * 0.7, 5.0e-04 * 0.7 }, { 700 * 1.3, 780 * 1.3, 125000 * 1.3, 5.0e-04 * 1.3 });
 		break;
 	case friction_model::lugre:
 		if (ident_k_finit) {
@@ -801,11 +795,11 @@ std::vector<std::vector<double>> Estimator::find_combinations() {
 		double kappa2_aux{ ub[4 + comp_idx] * 2 }, kappa3_aux{ ub[4 + comp_idx] * 2 }, nu2_aux{ ub[7 + comp_idx] * 2 }, nu3_aux{ ub[7 + comp_idx] * 2 }, alpha1_aux{ 1.0 }, alpha2_aux{ 1.0 };
 		for (int i = 0; i < combinations.size(); i++) {
 			while (kappa2_aux > ub[4 + comp_idx] || kappa2_aux < lb[4 + comp_idx])
-				kappa2_aux = combinations[i][4 + comp_idx] * randn(gen_normal) + combinations[i][4 + comp_idx];
+				kappa2_aux = combinations[i][4] * randn(gen_normal) + combinations[i][4];
 			while (kappa3_aux > ub[4 + comp_idx] || kappa3_aux < lb[4 + comp_idx])
-				kappa3_aux = combinations[i][4 + comp_idx] * randn(gen_normal) + combinations[i][4 + comp_idx];
+				kappa3_aux = combinations[i][4] * randn(gen_normal) + combinations[i][4];
 			while (nu2_aux > ub[7 + comp_idx] || nu2_aux < lb[7 + comp_idx])
-				nu2_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5 + comp_idx];
+				nu2_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5];
 			while (nu3_aux > ub[7 + comp_idx] || nu3_aux < lb[7 + comp_idx])
 				nu3_aux = combinations[i][5] * randn(gen_normal) + combinations[i][5];
 			while (alpha1_aux + alpha2_aux > 1.0) {

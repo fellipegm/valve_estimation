@@ -915,9 +915,13 @@ void ValveModel::sim_lugre() {
 		simulation_results.F_at[i] = F_at[1];
 		simulation_results.t[i] = i * Ts + t0;
 
+		#ifdef _DEBUG
+		if (simulation_results.t[i] > 674)
+			bool dbg = true;
+		#endif
 
 		for (int j = 2; j < nSamp + 2; j++) {
-			g_v = 1 / sigma_0 * (F_c + (F_s - F_c) * exp(-pow(v[j - 1] / v_s, 2)));
+			g_v = 1 / sigma_0 * (F_c + (F_s - F_c) * std::exp(-std::pow(v[j - 1] / v_s, 2.0)));
 
 			dot_z = v[j - 1] - std::abs(v[j - 1]) / g_v * z[j - 1];
 
@@ -930,6 +934,11 @@ void ValveModel::sim_lugre() {
 			a[j] = 1 / m * F_res[j];
 			v[j] = dt / 2 * (a[j] + a[j - 1]) + v[j - 1];
 			x[j] = dt / 2 * (v[j] + v[j - 1]) + x[j - 1];
+
+			#ifdef _DEBUG
+			if (x[j] > 0.02831)
+				bool dbg = true;
+			#endif
 
 			if (x[j] < x_min) {
 				F_res[j] = 0;

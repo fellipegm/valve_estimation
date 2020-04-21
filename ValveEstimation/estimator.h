@@ -44,7 +44,7 @@ public:
     void set_des_data(std::vector<double>);
     void set_pen_search_space(bool pen) { pen_search_space = pen; };
     void set_lb_ub(std::vector<double> lb_input, std::vector<double> ub_input) { lb = lb_input; ub = ub_input; };
-    void calc_lbub(double S0, double std_k);
+    void calc_lbub(double S0, double std_k, bool ident_k_finit);
 
     estimator_output run_estimator();
 };
