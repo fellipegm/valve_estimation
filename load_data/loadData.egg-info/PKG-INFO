@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: loadData
+Version: 0.0.1
+Summary: Package to import binary data written by the ValveEstimation program (.sim)
+Home-page: https://github.com/fellipegm/valve_estimation
+Author: Fellipe Garcia Marques
+Author-email: fellipegm@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: MIT License
+Classifier: Operating System :: Windows

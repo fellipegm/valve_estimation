@@ -73,7 +73,9 @@ int main(int argc, char** argv) {
 	std::string load_file = "";
 
 
-	int parse_res = parse_arguments(argc, argv, save_dir, type, excitation, models, sim_noise, estimate_k_finit, n_tests, valve_est, load_file);
+	int parse_res = parse_arguments(argc, argv, save_dir, type, excitation, 
+									models, sim_noise, estimate_k_finit, n_tests, 
+									valve_est, load_file);
 
 	if (parse_res) {
 		return EXIT_FAILURE;
