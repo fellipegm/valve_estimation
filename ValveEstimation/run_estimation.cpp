@@ -14,7 +14,6 @@
 	#define _WIN32_WINNT 0x0601
 #endif
 
-
 std::map<std::string, std::vector<double>> model_param_map{
 		{"kano", PARAM_ATRITO_KANO},
 		{"karnopp", PARAM_ATRITO_KARNOPP},
@@ -91,7 +90,6 @@ int main(int argc, char** argv) {
 
 		std::vector<double> input;
 		if (excitation.compare("sinusoidal") == 0) {
-
 			std::vector<std::vector<double>> exc = exc_vel_senoidal(v_min, v_max,
 				2 * M_PI / w_n / 20, (2 * (100 - 1.1 * S_exc)) / ((v_max - v_min) / 2 + v_min), S_exc, 1 / w_n, 5, 1e-3);
 			input = exc[1];
@@ -103,7 +101,7 @@ int main(int argc, char** argv) {
 
 #ifdef _SIM_SAVE_OP
 		// Save the OP value
-		write_matrix(save_dir + "OP.csv", &input, {"OP"});
+		write_matrix(save_dir + "OP.sim", &input, {"OP"});
 #endif
 
 		clock_t t;
@@ -352,13 +350,14 @@ int main(int argc, char** argv) {
 		valve_init_data.set_valve_param_value(param_valvula);
 		std::vector<double> P_filt = valve_init_data.kalman_filter(&dados.OP, &dados.P, Rv, Rv / 50);
 		P_filt = valve_init_data.filter2orderZP(&P_filt, 1 / valve_init_data.get_tauip() * 100.0, 0.9);
+		//std::vector<double> P_filt = dados.P;  // used as an example of the LuGre imprecisions
 		std::vector<double> x_filt = valve_init_data.filter2orderZP(&dados.x, 1 / valve_init_data.get_tauip() * 100.0, 0.9);
 
 		std::vector<double> sliced_x = std::vector<double>(x_filt.begin(), x_filt.begin() + 5);
 		double initial_pos = mean_vec(sliced_x);
 
 		std::vector<std::vector<double>> save_filter{ dados.P, dados.x, P_filt, x_filt };
-		write_matrix(save_dir + "filtered_data_" + valve_est + "_" + excitation + ".csv", save_filter, {"P", "x", "P_filt", "x_filt"});
+		write_matrix(save_dir + "filtered_data_" + valve_est + "_" + excitation + ".sim", save_filter, {"P", "x", "P_filt", "x_filt"});
 
 		// Initialize the valve model
 		for (auto model : models) {
@@ -455,32 +454,81 @@ int main(int argc, char** argv) {
 		//std::cin;
 	}
 	else if (type.compare("cl-simulation") == 0) {
-		//std::string experimento = "sinusoidal_velocity"; // loaded_data, sinusoidal_velocity, aleatory_velocity
+		// Valve data
+		double w_n = 0.28;
+		double S_exc = 25.7;
+		double v_max = 3e-3 * 100 / 29e-3;
+		double v_min = 1e-6 * 100 / 29e-3;
 
-		//// Valve data
-		//double w_n = 0.28;
-		//double S_exc = 25.7;
-		//double v_max = 3e-3 * 100 / 29e-3;
-		//double v_min = 1e-6 * 100 / 29e-3;
+		double stdNoise = 50.0 / pow(10.0, 25.0 / 10.0);
 
-		//double stdNoise = 50.0 / pow(10.0, 25.0 / 10.0);
+		std::vector<std::vector<double>> SP = exc_SP_cl_simulation(60, 0.25, 300, 1800, 1e-3);
+		std::vector<std::vector<double>> exc = exc_vel_aleatoria(v_min * 10, v_max, S_exc, 3000, 1e-3);
 
-		//std::vector<std::vector<double>> SP = exc_SP_cl_simulation(60, 0.25, 120, 1800, 1e-3);
-		//std::vector<std::vector<double>> exc = exc_vel_aleatoria(v_min * 10, v_max, S_exc, 3000, 1e-3);
+		//for (auto model : models) {
+		//	ValveModel valve = ValveModel();
+		//	valve.set_model(fric_map[model]);
+		//	valve.set_valve_param_value(PARAM_VALVULA);
+		//	valve.set_friction_param_value({ 700, 780, 60000, 5.0e-04 });
+		//	valve.set_simulation_type(cl);
+		//	valve.set_var_noise_controller(0.0);
+		//	valve.set_input_data(SP[1]);
+		//	valve.controller.set_controller_parameters({10, 2, 0, 0, 100, 0});
+		//	//valve.controller.set_excitation(exc[1]);
+		//	valve.controller.set_estimation(false);
+		//	valve.valve_simulation();
+		//	std::string filename = save_dir + "simulation_" + model + "_cl.sim";
+		//	write_simulation(filename, valve.simulation_results);
+		//}
 
-		////// Kano model cl simulation
-		//ValveModel valve = ValveModel();
-		////valve.set_model(kano);
-		////valve.set_valve_param_value(PARAM_VALVULA);
-		////valve.set_friction_param_value(PARAM_ATRITO_KANO);
-		////valve.set_simulation_type(h_cl);
-		////valve.set_var_noise_controller(stdNoise);
-		////valve.set_input_data(SP[1]);
-		////valve.controller.set_controller_parameters({0.1, 0, 0, 0, 100, -100});
-		////valve.controller.set_excitation(exc[1]);
-		////valve.controller.set_estimation(true);
-		////valve.valve_simulation();
-		////write_simulation("D:\\Drive\\Projetos\\Doutorado2C\\test_data\\simulation_kano_cl.csv", valve.simulation_results);
+
+			ValveModel valve = ValveModel();
+			valve.set_model(fric_map["karnopp"]);
+			valve.set_valve_param_value(PARAM_VALVULA);
+			valve.set_friction_param_value({ 700, 780, 60000, 5.0e-04 });
+			valve.set_simulation_type(cl);
+			valve.set_var_noise_controller(0.0);
+			valve.set_input_data(SP[1]);
+			valve.controller.set_controller_parameters({ 10, 2, 0, 0, 100, 0 });
+			valve.controller.set_estimation(false);
+			valve.valve_simulation();
+			std::string filename = save_dir + "simulation_" + "karnopp" + "_cl_60000.sim";
+			write_simulation(filename, valve.simulation_results);
+
+			valve.set_friction_param_value({ 700, 780, 30000, 5.0e-04 });
+			valve.valve_simulation();
+			filename = save_dir + "simulation_" + "karnopp" + "_cl_30000.sim";
+			write_simulation(filename, valve.simulation_results);
+
+			valve.set_friction_param_value({ 700, 780, 0, 5.0e-04 });
+			valve.valve_simulation();
+			filename = save_dir + "simulation_" + "karnopp" + "_cl_0.sim";
+			write_simulation(filename, valve.simulation_results);
+
+			valve.set_model(fric_map["lugre"]);
+			valve.set_valve_param_value(PARAM_VALVULA);
+			valve.set_friction_param_value({ 700, 780, 30000, 5.0e-04, 26000000, 2.039607805437114e+04 });
+			valve.set_simulation_type(cl);
+			valve.set_var_noise_controller(0.0);
+			valve.set_input_data(SP[1]);
+			valve.controller.set_controller_parameters({ 10, 2, 0, 0, 100, 0 });
+			valve.controller.set_estimation(false);
+			valve.valve_simulation();
+			filename = save_dir + "simulation_" + "lugre" + "_cl_30000.sim";
+			write_simulation(filename, valve.simulation_results);
+
+			valve.set_model(fric_map["gms"]);
+			valve.set_valve_param_value(PARAM_VALVULA);
+			valve.set_friction_param_value({ 700, 780, 30000, 5.0e-04, 29250000, 15600000, 3120000, 2910.90841109400, 1455.45420554700, 4366.36261664100, 0.75, 0.2, 20 });
+			valve.set_simulation_type(cl);
+			valve.set_var_noise_controller(0.0);
+			valve.set_input_data(SP[1]);
+			valve.controller.set_controller_parameters({ 10, 2, 0, 0, 100, 0 });
+			valve.controller.set_estimation(false);
+			valve.valve_simulation();
+			filename = save_dir + "simulation_" + "gms" + "_cl_30000.sim";
+			write_simulation(filename, valve.simulation_results);
+
 	}
 
 	return 0;

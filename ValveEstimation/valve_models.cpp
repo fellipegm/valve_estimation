@@ -1902,7 +1902,7 @@ void ValveModel::sim_he() {
 	for (int i = 0; i < u.size(); i++) {
 		simulation_results.t[i] = i * Ts;
 
-		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / (100 - D) + x_minP;
+		simulation_results.x[i] = x[i] * (x_maxP - x_minP) / (100 - D - F_c) + x_minP;
 		if (simulation_type == h_cl)
 			simulation_results.x[i] = simulation_results.x[i] + noise[i] / 100 * (x_max - x_min);
 

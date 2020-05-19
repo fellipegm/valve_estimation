@@ -13,7 +13,7 @@
 #include "argagg.hpp"
 
 static std::vector<std::string> available_types{ "simulation", "estimation", "real-estimation", "real-simulation", "cl-simulation", "cl-estimation" };
-static std::vector<std::string> available_excitations{ "sinusoidal", "aleatory" };
+static std::vector<std::string> available_excitations{ "sinusoidal", "aleatory", "ramps" };
 static std::vector<std::string> available_models{"kano", "he", "choudhury", "karnopp", "lugre", "gms", "sgms", "gms1" };
 static std::vector<std::string> available_valves{ "graphite", "teflon" };
 
@@ -114,7 +114,6 @@ int parse_arguments(int argc, char** argv, std::string& save_dir, std::string& t
 		std::cout << "User must specify a directory with --directory=<path>";
 		return 1;
 	}
-
 
 
 	if (args["type"]) {

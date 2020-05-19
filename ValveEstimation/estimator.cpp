@@ -22,7 +22,7 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 	double Fc_ub, Fc_lb, Fs_ub, Fs_lb, Fv_lb, Fv_ub, S_lb, S_ub, J_lb, J_ub, D_lb, D_ub, vs_lb, vs_ub;
 
 	double k_lb, k_ub, finit_lb, finit_ub;
-	double threshold_error_k = 0.05;
+	double threshold_error_k = 0.1;
 	if (std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1) > threshold_error_k) {
 		double error_k = std::max(0.1, std::abs((valve.get_k() - 2 * std_k) / valve.get_k() - 1));
 		k_lb = valve.get_k() - valve.get_k() * error_k;
@@ -53,7 +53,7 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 		// Kano bounds
 		S_ub = S0 * 1.3;
 		S_lb = S0 * 0.7;
-		J_ub = S0 * 0.3;
+		J_ub = S0 * 0.4;
 	}
 	else {
 		Fc_ub = Fc_Fs_2pc * 1.3;
@@ -65,7 +65,7 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 		// Kano bounds
 		S_ub = 2;
 		S_lb = 0;
-		J_ub = 2 * 0.3;
+		J_ub = 2 * 0.4;
 	}
 
 	// Kano bounds
@@ -80,26 +80,26 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 	vs_lb = 1e-5;
 
 	//Bounds for LuGre
-	double sigma0_ub = Fc_Fs_u2 * 1.2 / 1e-6;
-	double sigma0_lb = Fc_Fs_u2 * 0.8 / 50e-6;
-	double sigma1_ub = sigma0_lb;
+	double sigma0_ub = Fc_Fs_u2 * 1.3 * 1e6;
+	double sigma0_lb = Fc_Fs_u2 * 0.7 * 1e3;
+	double sigma1_ub = (sigma0_ub + sigma0_lb)/2;
 	double sigma1_lb = 500;
 
 	// Bounds for GMS
-	double kappa_ub = Fc_Fs_u2 * 1.2 / 1e-6;
-	double kappa_lb = Fc_Fs_u2 * 0.8 / 50e-6;
-	double nu_ub = kappa_lb;
+	double kappa_ub = Fc_Fs_u2 * 1.3 * 1e6;
+	double kappa_lb = Fc_Fs_u2 * 0.7 * 1e3;
+	double nu_ub = (kappa_ub + kappa_lb) / 2;
 	double nu_lb = 500;
 	double alpha_ub = 1;
 	double alpha_lb = 0;
-	double C_ub = 1 / 0.001;
+	double C_ub = 1e3;
 	double C_lb = 1;
 
 	switch (valve.get_model()) {
 	case friction_model::kano:
 		if (ident_k_finit) {
 			double range = (valve.get_xmax() - valve.get_xmin()) / 2;
-			set_lb_ub({ S_lb, J_lb, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
+			set_lb_ub({ S_lb, J_lb, D_lb, std::max(0.0, valve.get_xmin() - range), std::max(0.0, valve.get_xmax() - range) },
 				{ S_ub, J_ub, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
 		}
 		else
@@ -108,7 +108,7 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 	case friction_model::choudhury:
 		if (ident_k_finit) {
 			double range = (valve.get_xmax() - valve.get_xmin()) / 2;
-			set_lb_ub({ S_lb, J_lb, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
+			set_lb_ub({ S_lb, J_lb, D_lb, std::max(0.0, valve.get_xmin() - range), std::max(0.0, valve.get_xmax() - range) },
 				{ S_ub, J_ub, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
 		}
 		else
@@ -117,11 +117,11 @@ void Estimator::calc_lbub(double S0, double std_k, bool ident_k_finit) {
 	case friction_model::he:
 		if (ident_k_finit) {
 			double range = (valve.get_xmax() - valve.get_xmin()) / 2;
-			set_lb_ub({ S_lb / 2, (S_lb - J_lb) / 2, D_lb, valve.get_xmin() - range, valve.get_xmax() - range },
-				{ S_ub / 2, (S_ub - J_ub) / 2, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
+			set_lb_ub({ 0.35*S0, 0.0, D_lb, std::max(0.0, valve.get_xmin() - range), std::max(0.0, valve.get_xmax() - range) },
+				{ 0.845*S0, 0.845*S0, D_ub, valve.get_xmin() + range, valve.get_xmax() + range });
 		}
 		else
-			set_lb_ub({ S_lb / 2, (S_lb - J_lb) / 2, D_lb }, { S_ub / 2, (S_ub - J_ub) / 2, D_ub });
+			set_lb_ub({ 0.35 * S0, 0.0, D_lb }, { 0.845 * S0, 0.845 * S0, D_ub });
 		break;
 	case friction_model::karnopp:
 		if (ident_k_finit) {
@@ -187,24 +187,33 @@ double Estimator::residual_calc(ValveModel* model) {
 	double residual{ 0 };
 
 	for (int i = 0; i < des_data.size(); i++) {
-		residual += pow(model->simulation_results.x[i] - des_data[i], 2);
+		residual += std::pow(model->simulation_results.x[i] - des_data[i], 2);
 	}
 	residual = residual / ((double)des_data.size());
 
 	double penalization{ 0.0 };
 	if (pen_search_space) {
-		for (size_t i = 0; i < lb.size(); i++) {
+		for (size_t i = 0; i < lb.size(); i++)
 			penalization += std::max(0.0, lb[i] - model->get_param_friction(i)) * 1e5 + std::max(0.0, model->get_param_friction(i) - ub[i]) * 1e5;
-		}
-		if (model->get_model() != friction_model::kano && model->get_model() != friction_model::he && model->get_model() != friction_model::choudhury)
+		if (model->get_model() != friction_model::kano && model->get_model() != friction_model::choudhury)
 			penalization += std::max(0.0, model->get_Fc() - model->get_Fs()) * 1e5;
 		if (model->get_model() == friction_model::gms) {
 			double alpha_error = std::abs(model->get_alpha1() + model->get_alpha2() + model->get_alpha3() - 1);
 			if (std::abs(alpha_error) > 1e-3)
 				penalization += std::abs(alpha_error) * 1e5;
+			if (model->get_alpha1() < 0.0 || model->get_alpha1() > 1.0)
+				penalization += std::abs(model->get_alpha1()) * 1e5;
+			if (model->get_alpha2() < 0.0 || model->get_alpha2() > 1.0)
+				penalization += std::abs(model->get_alpha2()) * 1e5;
+			if (model->get_alpha3() < 0.0 || model->get_alpha3() > 1.0)
+				penalization += std::abs(model->get_alpha3()) * 1e5;
+		}
+		if (model->get_model() == friction_model::sgms) {
+			if (model->get_alpha1() < 0 || model->get_alpha1() > 1)
+				penalization += std::abs(model->get_alpha1()) * 1e5;
 		}
 	}
-	return residual + penalization;
+	return (isnan(residual + penalization) ? 1e20 : residual + penalization);
 }
 
 estimator_output Estimator::run_estimator() {
