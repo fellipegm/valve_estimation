@@ -2,6 +2,10 @@
 
 This repository is the porting of my PhD Thesis from MATLAB to C++ to obtain higher computational performance.
 
+[Thesis](https://www.teses.usp.br/teses/disponiveis/3/3139/tde-12022020-100441/publico/FellipeGarciaMarquesCorr20.pdf)
+
+[check updates in fellipegm -> valve estimation](https://www.github.com/fellipegm)
+
 ## Instalation
 
 I used the Visual Studio Community 2019 with Intel Compiler 19.1 for Windows or just the Intel Compiler 19.1 in Linux. After some changes in the code, I think that it only works in Windows.
@@ -51,7 +55,7 @@ If the user wants to simulate the he and kano models (using the compiled paramet
 
 * [ ] Describe the expected data format
 
-* [ ] Use binary data to avoid spending too much space in hdd
+* [X] Use binary data to avoid spending too much space in hdd
 
 ## License
 
