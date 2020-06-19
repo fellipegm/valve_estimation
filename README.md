@@ -59,4 +59,4 @@ If the user wants to simulate the he and kano models (using the compiled paramet
 
 ## License
 
-MIT
+AGPL V3
